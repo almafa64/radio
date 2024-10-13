@@ -75,7 +75,6 @@ func get_all_pins() []Pin {
             i,
             status,
             false,
-            true,
         }
 
         if status != "" {
@@ -83,7 +82,6 @@ func get_all_pins() []Pin {
                 i,
                 status,
                 true,
-                false,
             }
         }        
 
@@ -170,5 +168,4 @@ type Pin struct {
     Num int 
     Status string 
     IsEnabled bool
-    IsDisabled bool
 }

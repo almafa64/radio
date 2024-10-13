@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Switch</title>
+        <title>Radio</title>
         <link href="css/style.css" rel="stylesheet">
     </head>
     <body>
@@ -12,9 +12,7 @@
             <div class="button_container">
                 {{ if .IsEnabled }}
                 <button id="radio_{{ .Num }}" type="submit" formaction="/switch/{{ .Num }}" class="{{ .Status }}">radio {{ .Num }}</button>
-                {{ end }}
-
-                {{ if .IsDisabled }}
+                {{ else }}
                 <button id="radio_{{ .Num }}" type="button" class="{{ .Status }}">radio {{ .Num }}</button>
                 {{ end }}
             </div>
