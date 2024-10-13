@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Switch</title>
+        <link href="css/style.css" rel="stylesheet">
+    </head>
+    <body>
+        <form action="/switch" method="post">
+            {{ range . }}
+            <div class="button_container">
+                <button id="radio_{{ .Num }}" type="submit" formaction="/switch/{{ .Num }}" class="{{ .Status }}">radio {{ .Num }}</button>
+            </div>
+            {{ end }}
+        </form>
+    </body>
+</html>
