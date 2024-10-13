@@ -69,24 +69,42 @@ func index(res http.ResponseWriter) {
 func get_all_pins() []Pin {
     all_pins := []Pin{}
     for i := 1; i < 8; i++ {
-        status := ""
+        status := get_pin_status(i)
 
-        if get_pin_status(i) {
-            status = "on"
-        } else {
-            status = "off"
+        pin := Pin {
+            i,
+            status,
+            false,
+            true,
         }
-        
-        all_pins = append(all_pins, Pin{ i, status })
+
+        if status != "" {
+            pin = Pin {
+                i,
+                status,
+                true,
+                false,
+            }
+        }        
+
+        all_pins = append(all_pins, pin)
     }
 
     return all_pins
 }
 
-func get_pin_status(pin int) bool {
-    data := open_file("pin_status.txt")
+func get_pin_status(pin int) string {
+    data := string(open_file("pin_status.txt")[pin-1])
 
-    return string(data[pin-1]) == "1" 
+    if data == "1" {
+        data = "on"
+    } else if data == "0" {
+        data = "off"
+    } else if data == "-" {
+        data = ""
+    }
+
+    return data
 }
 
 func toggle_pin_status(pin int) {
@@ -151,4 +169,6 @@ func main() {
 type Pin struct {
     Num int 
     Status string 
+    IsEnabled bool
+    IsDisabled bool
 }

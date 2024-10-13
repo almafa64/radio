@@ -10,7 +10,13 @@
         <form action="/switch" method="post">
             {{ range . }}
             <div class="button_container">
+                {{ if .IsEnabled }}
                 <button id="radio_{{ .Num }}" type="submit" formaction="/switch/{{ .Num }}" class="{{ .Status }}">radio {{ .Num }}</button>
+                {{ end }}
+
+                {{ if .IsDisabled }}
+                <button id="radio_{{ .Num }}" type="button" class="{{ .Status }}">radio {{ .Num }}</button>
+                {{ end }}
             </div>
             {{ end }}
         </form>
