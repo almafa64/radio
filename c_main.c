@@ -17,14 +17,12 @@ void disable_perm() {
     }
 }
 
-void set_pin(int pin, int voltage) {
-    int v;
-
+void set_pin(int pin, int data, int voltage) {
     if (voltage) {
-        v = (int)pow(2, pin);
+        data = (int)pow(2, pin);
     } else {
-        v &= ~((int)pow(2, pin));
+        data &= ~((int)pow(2, pin));
     }
 
-    outb(v, base);
+    outb(data, base);
 }

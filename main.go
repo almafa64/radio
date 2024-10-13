@@ -28,24 +28,32 @@ func Template_init() {
     }
 }
 
-
 func page_handler(res http.ResponseWriter, req *http.Request) {
     path := req.URL.Path
 
     if len(path) == 9 {
         if path[0:7] == "/switch" {
             pin, err := strconv.Atoi(path[8:])
-
             check_err(err)
 
             p := C.int(pin-1)
+            dec_data := C.int(overall_bin_status())
+
+            status := get_pin_status(pin)
+            voltage := C.int(1)
+
+            if status == "on" {
+                voltage = C.int(0)
+            }
 
             // Placeholder. Not for actual use
             p = p 
+            dec_data = dec_data
+            voltage = voltage
 
             /*
             C.enable_perm()
-            C.set_pin(p, 1)
+            C.set_pin(p, dec_data, voltage)
             C.disable_perm()
             */
 
@@ -60,13 +68,13 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 
 
 func index(res http.ResponseWriter) {
-    data := get_all_pins()
+    data := gen_pins()
     err := Tpl.ExecuteTemplate(res, "index.html", data)
 
     check_err(err)
 }
 
-func get_all_pins() []Pin {
+func gen_pins() []Pin {
     all_pins := []Pin{}
     for i := 1; i < 8; i++ {
         status := get_pin_status(i)
@@ -91,18 +99,39 @@ func get_all_pins() []Pin {
     return all_pins
 }
 
-func get_pin_status(pin int) string {
-    data := string(open_file("pin_status.txt")[pin-1])
+func overall_bin_status() int {
+    bin_data := ""
+    for i := 7; i >= 1; i-- {
+        status := get_pin_status(i)
 
-    if data == "1" {
-        data = "on"
-    } else if data == "0" {
-        data = "off"
-    } else if data == "-" {
-        data = ""
+        if status == "on" {
+            status = "1"
+        } else {
+            status = "0"
+        }
+
+        bin_data += status 
+    }
+    
+    dec_data, err := strconv.ParseInt(bin_data, 2, 64)  
+    check_err(err)
+
+    return int(dec_data)
+
+}
+
+func get_pin_status(pin int) string {
+    status := string(open_file("pin_status.txt")[pin-1])
+
+    if status == "1" {
+        status = "on"
+    } else if status == "0" {
+        status = "off"
+    } else if status == "-" {
+        status = ""
     }
 
-    return data
+    return status
 }
 
 func toggle_pin_status(pin int) {
