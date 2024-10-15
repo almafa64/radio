@@ -1,3 +1,5 @@
+#include "c_main.h"
+
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/io.h>
@@ -22,8 +24,8 @@ void disable_perm() {
     }
 }
 
-void set_pin(int pin, int data, int voltage) {
-    if (voltage) {
+void set_pin(int pin, int data, bool level) {
+    if (level) {
         SET_BIT(data, pin); // data |= 1U << bit;
     } else {
         CLEAR_BIT(data, pin); // data &= ~(1U << bit);
