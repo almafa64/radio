@@ -14,6 +14,7 @@ import (
 
 var Tpl *template.Template
 const PORT string = "8080"
+const PIN_FILE string = "pin_status.txt"
 
 func Template_init() {
 	var err error
@@ -119,7 +120,7 @@ func overall_bin_status() int {
 }
 
 func get_pin_status(pin int) string {
-	status := string(open_file("pin_status.txt")[pin-1])
+	status := string(open_file(PIN_FILE)[pin-1])
 
 	if status == "1" {
 		status = "on"
@@ -133,7 +134,7 @@ func get_pin_status(pin int) string {
 }
 
 func toggle_pin_status(pin int) {
-	data := string(open_file("pin_status.txt"))
+	data := string(open_file(PIN_FILE))
 	altered_data := ""
 
 	for i := 0; i < len(data); i++ {
@@ -150,7 +151,7 @@ func toggle_pin_status(pin int) {
 
 	altered_data += "\n"
 
-	write_file("pin_status.txt", []byte(altered_data))
+	write_file(PIN_FILE, []byte(altered_data))
 }
 
 func write_file(filename string, data []byte) {
@@ -180,7 +181,16 @@ func main() {
 	http.HandleFunc("/", page_handler)
 
 	Template_init()
-	open_file("pin_status.txt")
+	
+	// if file doesnt exists, create it with default value
+	_, err := os.Stat(PIN_FILE)
+	if os.IsNotExist(err) {
+		write_file(PIN_FILE, []byte("0000----\n"))
+	} else if err != nil {
+		check_err(err)
+	}
+
+	open_file(PIN_FILE)
 
 	http.ListenAndServe(":"+PORT, nil)
 }
