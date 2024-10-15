@@ -19,10 +19,12 @@ void disable_perm() {
 
 void set_pin(int pin, int data, int voltage) {
     if (voltage) {
-        data = (int)pow(2, pin);
+        data ^= (int)pow(2, pin);
     } else {
         data &= ~((int)pow(2, pin));
     }
 
-    outb(data, base);
+    printf("%x\n", data);
+
+    // outb(data, base);
 }

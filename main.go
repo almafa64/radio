@@ -51,9 +51,9 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
             dec_data = dec_data
             voltage = voltage
 
+            C.set_pin(p, dec_data, voltage)
             /*
             C.enable_perm()
-            C.set_pin(p, dec_data, voltage)
             C.disable_perm()
             */
 
@@ -178,12 +178,6 @@ func check_err(e error) {
 func main() {
     fs_css := http.FileServer(http.Dir("./css"))
     http.Handle("/css/", http.StripPrefix("/css", fs_css))
-
-    fs_images := http.FileServer(http.Dir("./images"))
-    http.Handle("/images/", http.StripPrefix("/images", fs_images))
-
-    fs_icons := http.FileServer(http.Dir("./icons"))
-    http.Handle("/icons/", http.StripPrefix("/icons", fs_icons))
 
     http.HandleFunc("/", page_handler)
 
