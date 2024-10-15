@@ -56,8 +56,8 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
     }
 
     // Placeholder. Not for actual use
-    p = p
-    dec_data = dec_data
+	//p = p
+    //dec_data = dec_data
     // level = level
 
     C.set_pin(p, dec_data, level)

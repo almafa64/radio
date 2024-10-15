@@ -13,7 +13,7 @@
 #define CHANGE_BIT(data, bit)           ((data) ^= BIT(bit))
 
 void enable_perm() {
-    if (ioperm(base, 1, 1)) {
+    if (ioperm(base, 1, 1)) {       
         printf("Access denied to %x\n", base);
     }
 }
@@ -26,12 +26,12 @@ void disable_perm() {
 
 void set_pin(int pin, int data, bool level) {
     if (level) {
-        SET_BIT(data, pin); // data |= 1U << bit;
-    } else {
         CLEAR_BIT(data, pin); // data &= ~(1U << bit);
+    } else {
+        SET_BIT(data, pin); // data |= 1U << bit;
     }
 
-    printf("%x\n", data);
+    printf("0x%0    2x\n", data);
 
     // outb(data, base);
 }
