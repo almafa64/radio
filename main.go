@@ -16,6 +16,7 @@ var Tpl *template.Template
 
 const PORT string = "8080"
 const PIN_FILE_PATH string = "pin_status.txt"
+const PIN_FILE_PATH string = "pin_status.txt"
 
 func Template_init() {
 	var err error
