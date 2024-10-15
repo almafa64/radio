@@ -49,18 +49,18 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
     dec_data := C.int(overall_bin_status())
 
     status := get_pin_status(pin)
-    voltage := C.int(1)
+    level := C._Bool(false)
 
     if status == "on" {
-        voltage = C.int(0)
+        level = C._Bool(true)
     }
 
     // Placeholder. Not for actual use
     p = p
     dec_data = dec_data
-    voltage = voltage
+    // level = level
 
-    C.set_pin(p, dec_data, voltage)
+    C.set_pin(p, dec_data, level)
     /*
        C.enable_perm()
        C.disable_perm()
