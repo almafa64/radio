@@ -31,7 +31,7 @@ void set_pin(int pin, int data, bool level) {
         SET_BIT(data, pin); // data |= 1U << bit;
     }
 
-    printf("0x%0    2x\n", data);
+    printf("0x%02x\n", data);
 
     // outb(data, base);
 }
