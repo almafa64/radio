@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/io.h>
-#include <math.h>
 
 #define base 0x378 // Base address of the parallel port
 
