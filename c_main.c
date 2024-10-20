@@ -26,9 +26,9 @@ void disable_perm() {
 
 void set_pin(int pin, int data, bool level) {
     if (level) {
-        CLEAR_BIT(data, pin); // data &= ~(1U << bit);
-    } else {
         SET_BIT(data, pin); // data |= 1U << bit;
+    } else {
+        CLEAR_BIT(data, pin); // data &= ~(1U << bit);
     }
 
     printf("0x%02x\n", data);

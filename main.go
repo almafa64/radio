@@ -49,10 +49,10 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
     dec_data := C.int(overall_bin_status())
 
     status := get_pin_status(pin)
-    level := C._Bool(false)
+	level := C._Bool(true)
 
     if status == "on" {
-        level = C._Bool(true)
+		level = C._Bool(false)
     }
 
     // Placeholder. Not for actual use
