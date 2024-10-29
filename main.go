@@ -5,17 +5,47 @@ package main
 import "C"
 
 import (
-    "html/template"
-    "log"
-    "net/http"
-    "os"
-    "strconv"
+	"html/template"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
+
+type Client struct {
+    conn *websocket.Conn
+    send chan []byte
+}
+
+type Pin struct {
+    Num       int
+    Status    string
+    IsEnabled bool
+}
 
 var Tpl *template.Template
 
-const PORT string = "8080"
-const PIN_FILE_PATH string = "pin_status.txt"
+const PORT = "8080"
+const PIN_FILE_PATH = "pin_status.txt"
+const MAX_NUMBER_OF_PINS = 7
+
+const READ_TIMEOUT = 100 * time.Second
+const HEARTBEAT_TIMEOUT = 20 * time.Second
+
+var upgrader = websocket.Upgrader{
+    ReadBufferSize:  1024,
+    WriteBufferSize: 1024,
+}
+
+var (
+    clients = make(map[*Client]struct{}) // "hashset"
+    clientsLock  sync.Mutex
+)
 
 func Template_init() {
     var err error
@@ -33,42 +63,116 @@ func Template_init() {
 func page_handler(res http.ResponseWriter, req *http.Request) {
     path := req.URL.Path
 
-    if len(path) != 9 {
+    if path == "/" {
         index(res)
         return
     }
 
-    if path[0:7] != "/switch" {
+    http.NotFound(res, req)
+}
+
+func ws_handler(res http.ResponseWriter, req *http.Request) {
+    conn, err := upgrader.Upgrade(res, req, nil)
+    if err != nil {
+        log.Println("upgrade error:", err)
         return
     }
+    
+    client := &Client{conn: conn, send: make(chan []byte)}
+	defer client.conn.Close()
 
-    pin, err := strconv.Atoi(path[8:])
-    check_err(err)
+    addClient(client)
+	defer removeClient(client)
 
-    p := C.int(pin - 1)
-    dec_data := C.int(overall_bin_status())
+	go readMessages(client)
 
-    status := get_pin_status(pin)
-	level := C._Bool(true)
+    // wait maximum readTimeout second for pong
+    conn.SetReadDeadline(time.Now().Add(READ_TIMEOUT))
+    conn.SetPongHandler(func(appData string) error {
+        conn.SetReadDeadline(time.Now().Add(READ_TIMEOUT))
+        return nil
+    })
 
-    if status == "on" {
-		level = C._Bool(false)
-    }
+    // ping every heartbeatTimeout second
+    heartbeatTicker := time.NewTicker(HEARTBEAT_TIMEOUT)
+    defer heartbeatTicker.Stop()
 
-    // Placeholder. Not for actual use
-    //p = p
-    //dec_data = dec_data
-    // level = level
+    for {
+		select {
+		case <-heartbeatTicker.C:
+			// send ping
+			if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Println(client.conn.RemoteAddr().String(), "ping failed, closing connection:", err)
+				return
+			}
+		case message, ok := <-client.send:
+			if !ok {
+				// Channel closed, terminate connection
+				log.Printf("%s channel closed\n", client.conn.RemoteAddr().String())
+				client.conn.WriteMessage(websocket.TextMessage, []byte("closed"))
+                return
+			}
 
-    C.set_pin(p, dec_data, level)
-    /*
-       C.enable_perm()
-       C.disable_perm()
-    */
+			// Send the message to the client
+			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				log.Println(client.conn.RemoteAddr().String(), "write error, closing connection:", err)
+				return
+			}
+		}
+	}
+}
 
-    toggle_pin_status(pin)
+func readMessages(client *Client) {
+    defer close(client.send)
 
-    http.Redirect(res, req, "/", http.StatusSeeOther)
+    clientsLock.Lock()
+    client.send <- read_pin_file()
+    clientsLock.Unlock()
+
+	for {
+		_, message, err := client.conn.ReadMessage()
+        if websocket.IsCloseError(err, websocket.CloseGoingAway) {
+            return
+        } else if err != nil {
+			log.Println("Read error:", err)
+			return
+		}
+
+		clientsLock.Lock()
+
+        // check if message is number and in range of max pin number
+        num, err := strconv.Atoi(string(message))
+        if err != nil || num >= MAX_NUMBER_OF_PINS {
+            continue
+        }
+
+        /*
+        C.enable_perm()
+        C.disable_perm()
+        */
+
+		// Send the message to all connected clients
+        statuses := toggle_pin_status(num)
+		for c := range clients {
+            c.send <- statuses
+		}
+
+		clientsLock.Unlock()
+	}
+}
+
+func addClient(client *Client) {
+	clientsLock.Lock()
+	defer clientsLock.Unlock()
+	clients[client] = struct{}{}
+	log.Printf("%s connected. Total clients: %d", client.conn.RemoteAddr().String(), len(clients))
+}
+
+func removeClient(client *Client) {
+	clientsLock.Lock()
+	defer clientsLock.Unlock()
+	delete(clients, client)
+	log.Printf("%s disconnected. Total clients: %d", client.conn.RemoteAddr().String(), len(clients))
 }
 
 func index(res http.ResponseWriter) {
@@ -80,11 +184,11 @@ func index(res http.ResponseWriter) {
 
 func gen_pins() []Pin {
     all_pins := []Pin{}
-    for i := 1; i < 8; i++ {
+    for i := 0; i < MAX_NUMBER_OF_PINS; i++ {
         status := get_pin_status(i)
 
         pin := Pin{
-            i,
+            i + 1,
             status,
             false,
         }
@@ -100,73 +204,61 @@ func gen_pins() []Pin {
 }
 
 func overall_bin_status() int {
-    bin_data := ""
-    for i := 7; i >= 1; i-- {
-        status := get_pin_status(i)
+    dec_data := 0
+    statuses := read_pin_file()
+    
+    for i := 0; i < MAX_NUMBER_OF_PINS; i++ {
+		if statuses[i] == '1' {
+			dec_data |= 1 << (MAX_NUMBER_OF_PINS - 1 - i) // set pin bit in dec_data from backward
+		}
+	}
 
-        if status == "on" {
-            status = "1"
-        } else {
-            status = "0"
-        }
-
-        bin_data += status
-    }
-
-    dec_data, err := strconv.ParseInt(bin_data, 2, 64)
-    check_err(err)
-
-    return int(dec_data)
-
+    return dec_data
 }
 
 func get_pin_status(pin int) string {
-    status := string(open_file(PIN_FILE_PATH)[pin-1])
+    status := read_pin_file()[pin]
 
-    if status == "1" {
-        status = "on"
-    } else if status == "0" {
-        status = "off"
-    } else if status == "-" {
-        status = ""
+    switch(status) {
+        case '1': return "on"
+        case '0': return "off"
+        default:  return ""
     }
-
-    return status
 }
 
-func toggle_pin_status(pin int) {
-    data := string(open_file(PIN_FILE_PATH))
-    altered_data := ""
+func toggle_pin_status(pin int) []byte {
+    statuses := read_pin_file()
 
-    for i := 0; i < len(data); i++ {
-        if i == pin-1 {
-            if string(data[i]) == "1" {
-                altered_data += "0"
-            } else {
-                altered_data += "1"
-            }
-        } else {
-            altered_data += string(data[i])
-        }
+    pin_byte := statuses[pin]
+    if pin_byte == '1' {
+        statuses[pin] = '0'
+    } else if pin_byte == '0' {
+        statuses[pin] = '1'
     }
 
-    altered_data += "\n"
+    statuses = append(statuses, '\n')
 
-    write_file(PIN_FILE_PATH, []byte(altered_data))
+    write_pin_file(statuses)
+    return statuses
 }
 
 func write_file(filename string, data []byte) {
     err := os.WriteFile(filename, data, 0644)
-
     check_err(err)
 }
 
-func open_file(filename string) []byte {
+func read_file(filename string) []byte {
     data, err := os.ReadFile(filename)
-
     check_err(err)
+    return data[:len(data)-1] // remove newline
+}
 
-    return data[:len(data)-1]
+func write_pin_file(data []byte) {
+    write_file(PIN_FILE_PATH, data)
+}
+
+func read_pin_file() []byte{
+    return read_file(PIN_FILE_PATH)
 }
 
 func check_err(e error) {
@@ -176,28 +268,42 @@ func check_err(e error) {
 }
 
 func main() {
-    fs_css := http.FileServer(http.Dir("./css"))
-    http.Handle("/css/", http.StripPrefix("/css", fs_css))
+    if MAX_NUMBER_OF_PINS > 63 || MAX_NUMBER_OF_PINS < 1 {
+        log.Fatalln("MAX_NUMBER_OF_PINS cant be bigger than 63, nor smaller than 1")
+    }
+
+    http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
+    http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))
 
     http.HandleFunc("/", page_handler)
+    http.HandleFunc("/radio_ws", ws_handler)
 
     Template_init()
 
     // if file doesnt exists, create it with default value
-    _, err := os.Stat(PIN_FILE_PATH)
+    status_bytes, err := os.ReadFile(PIN_FILE_PATH)
     if os.IsNotExist(err) {
-        write_file(PIN_FILE_PATH, []byte("0000----\n"))
+        default_pins := strings.Repeat("-", MAX_NUMBER_OF_PINS) + "\n"
+        status_bytes = []byte(default_pins)
+        write_pin_file(status_bytes)
     } else {
         check_err(err)
     }
 
-    open_file(PIN_FILE_PATH)
+    // if stasuses length is different then modify it
+    status_bytes = status_bytes[:len(status_bytes)-1]
+    if len(status_bytes) != MAX_NUMBER_OF_PINS {
+        statuses := string(status_bytes)
+        
+        var default_pins string
+        if len(statuses) > MAX_NUMBER_OF_PINS {
+            default_pins = statuses[:MAX_NUMBER_OF_PINS] + "\n"
+        } else {
+            default_pins = statuses + strings.Repeat("-", MAX_NUMBER_OF_PINS - len(statuses)) + "\n"
+        }
+
+        write_pin_file([]byte(default_pins))
+    }
 
     http.ListenAndServe(":"+PORT, nil)
-}
-
-type Pin struct {
-    Num       int
-    Status    string
-    IsEnabled bool
 }
