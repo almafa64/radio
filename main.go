@@ -282,25 +282,30 @@ func main() {
     status_bytes, err := os.ReadFile(PIN_FILE_PATH)
     if os.IsNotExist(err) {
         default_pins := strings.Repeat("-", MAX_NUMBER_OF_PINS) + "\n"
-        status_bytes = []byte(default_pins)
-        write_pin_file(status_bytes)
+        write_pin_file([]byte(default_pins))
     } else {
         check_err(err)
-    }
 
-    // if stasuses length is different then modify it
-    status_bytes = status_bytes[:len(status_bytes)-1]
-    if len(status_bytes) != MAX_NUMBER_OF_PINS {
-        statuses := string(status_bytes)
-        
-        var default_pins string
-        if len(statuses) > MAX_NUMBER_OF_PINS {
-            default_pins = statuses[:MAX_NUMBER_OF_PINS] + "\n"
-        } else {
-            default_pins = statuses + strings.Repeat("-", MAX_NUMBER_OF_PINS - len(statuses)) + "\n"
+        // if last byte isnt \n then add it
+        if status_bytes[len(status_bytes)-1] != '\n' {
+            status_bytes = append(status_bytes, '\n')
+            write_pin_file(status_bytes)
         }
 
-        write_pin_file([]byte(default_pins))
+        // if pin file length is different than MAX_NUMBER_OF_PINS then modify it
+        status_bytes = status_bytes[:len(status_bytes)-1]
+        if len(status_bytes) != MAX_NUMBER_OF_PINS {
+            statuses := string(status_bytes)
+            
+            var default_pins string
+            if len(statuses) > MAX_NUMBER_OF_PINS {
+                default_pins = statuses[:MAX_NUMBER_OF_PINS] + "\n"
+            } else {
+                default_pins = statuses + strings.Repeat("-", MAX_NUMBER_OF_PINS - len(statuses)) + "\n"
+            }
+
+            write_pin_file([]byte(default_pins))
+        }
     }
 
     http.ListenAndServe(":"+PORT, nil)
