@@ -236,9 +236,7 @@ func toggle_pin_status(pin int) []byte {
         statuses[pin] = '1'
     }
 
-    statuses = append(statuses, '\n')
-
-    write_pin_file(statuses)
+    write_pin_file(append(statuses, '\n'))
     return statuses
 }
 
