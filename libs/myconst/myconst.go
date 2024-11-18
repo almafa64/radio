@@ -1,7 +1,7 @@
 package myconst
 
 import (
-    "time"
+	"time"
 )
 
 const PORT = "8080"
@@ -11,3 +11,5 @@ const PIN_FILE_PATH = "./pins.txt"
 
 const READ_TIMEOUT = 100 * time.Second
 const HEARTBEAT_TIMEOUT = 20 * time.Second
+
+const CAMERA_PATH = "/dev/video0"
