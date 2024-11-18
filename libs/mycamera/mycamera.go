@@ -18,6 +18,7 @@ var (
 )
 
 func Streaming(w http.ResponseWriter, req *http.Request) {
+	// Make a multipart writer to help with streaming frames
 	mimeWriter := multipart.NewWriter(w)
 	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
 	partHeader := make(textproto.MIMEHeader)
@@ -38,6 +39,7 @@ func Streaming(w http.ResponseWriter, req *http.Request) {
 }
 
 func InitCamera() *device.Device {
+	// Open camera for reading
 	camera, err := device.Open(
 		myconst.CAMERA_PATH,
 		device.WithPixFormat(myconst.CAMERA_FORMAT),
@@ -45,6 +47,7 @@ func InitCamera() *device.Device {
 
 	myerr.CheckErrMsg("failed to open device:", err)
 
+// Start camera with empty context
 	err = camera.Start(context.TODO())
 	myerr.CheckErrMsg("camera start:", err)
 
