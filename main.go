@@ -31,6 +31,12 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 
 func index(res http.ResponseWriter) {
     data := myhelper.Get_data()
+
+    /*data := mystruct.IndexTemplate {
+        Pins: pins,
+        UseCamera: myconst.USE_CAMERA,
+    }*/
+
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
 
     myerr.Check_err(err)
@@ -46,15 +52,17 @@ func main() {
     
     mytpl.Template_init()
 
-    camera := mycamera.InitCamera()
-    defer camera.Close()
+    if myconst.USE_CAMERA {
+        camera := mycamera.InitCamera()
+        defer camera.Close()
+        http.HandleFunc("/video", mycamera.Streaming)
+    }
 
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
     http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))
 
     http.HandleFunc("/", page_handler)
     http.HandleFunc("/radio_ws", mywebsocket.Ws_handler)
-    http.HandleFunc("/video", mycamera.Streaming)
-    
+
     http.ListenAndServe(":"+myconst.PORT, nil)
 }

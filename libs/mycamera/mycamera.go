@@ -11,7 +11,6 @@ import (
 	"radio_site/libs/myerr"
 
 	"github.com/vladimirvivien/go4vl/device"
-	"github.com/vladimirvivien/go4vl/v4l2"
 )
 
 var (
@@ -41,7 +40,7 @@ func Streaming(w http.ResponseWriter, req *http.Request) {
 func InitCamera() *device.Device {
 	camera, err := device.Open(
 		myconst.CAMERA_PATH,
-		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 1280, Height: 720}),
+		device.WithPixFormat(myconst.CAMERA_FORMAT),
 	)
 
 	myerr.CheckErrMsg("failed to open device:", err)
@@ -52,37 +51,3 @@ func InitCamera() *device.Device {
 	frames = camera.GetOutput()
 	return camera
 }
-
-/*
-func main() {
-	port := ":3000"
-	devName := "/dev/video0"
-	flag.StringVar(&devName, "d", devName, "device name (path)")
-	flag.StringVar(&port, "p", port, "webcam service port")
-
-	camera, err := device.Open(
-		devName,
-		device.WithPixFormat(v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 1280, Height: 720}),
-	)
-	if err != nil {
-		log.Fatalf("failed to open device: %s", err)
-	}
-	defer camera.Close()
-
-	if err := camera.Start(context.TODO()); err != nil {
-		log.Fatalf("camera start: %s", err)
-	}
-
-	frames = camera.GetOutput()
-
-	log.Printf("Serving images: [0.0.0.0%s/video]", port)
-	
-	http.HandleFunc("/video", imageServ)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		t, _ := template.ParseFiles("index.html")
-		t.Execute(w, "index")
-	})
-
-	log.Fatal(http.ListenAndServe(port, nil))
-}
-*/
