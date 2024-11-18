@@ -1,7 +1,7 @@
 package mystruct
 
 import (
-    "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
@@ -13,4 +13,9 @@ type Pin struct {
     Num       int
     Status    string
     IsEnabled bool
+}
+
+type IndexTemplate struct {
+    Pins []Pin
+    UseCamera bool
 }

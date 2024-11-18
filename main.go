@@ -10,6 +10,7 @@ import (
 	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
+	"radio_site/libs/mystruct"
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
 
@@ -29,7 +30,13 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 }
 
 func index(res http.ResponseWriter) {
-    data := myhelper.Gen_pins()
+    pins := myhelper.Gen_pins()
+
+    data := mystruct.IndexTemplate {
+        Pins: pins,
+        UseCamera: myconst.USE_CAMERA,
+    }
+
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
 
     myerr.Check_err(err)
@@ -45,15 +52,17 @@ func main() {
     
     mytpl.Template_init()
 
-    camera := mycamera.InitCamera()
-    defer camera.Close()
+    if myconst.USE_CAMERA {
+        camera := mycamera.InitCamera()
+        defer camera.Close()
+        http.HandleFunc("/video", mycamera.Streaming)
+    }
 
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
     http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))
 
     http.HandleFunc("/", page_handler)
     http.HandleFunc("/radio_ws", mywebsocket.Ws_handler)
-    http.HandleFunc("/video", mycamera.Streaming)
 
     http.ListenAndServe(":"+myconst.PORT, nil)
 }
