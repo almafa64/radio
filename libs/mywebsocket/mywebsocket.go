@@ -39,6 +39,12 @@ func RemoveClient(client *mystruct.Client) {
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 }
 
+func WriteToClient(client *mystruct.Client, messageType int, data []byte) error {
+	client.Lock.Lock()
+	defer client.Lock.Unlock()
+	return client.Conn.WriteMessage(messageType, data)
+}
+
 func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	conn, err := Upgrader.Upgrade(res, req, nil)
 	if err != nil {
@@ -69,7 +75,7 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		select {
 		case <-heartbeatTicker.C:
 			// send ping
-			if err := client.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := WriteToClient(client, websocket.PingMessage, nil); err != nil {
 				log.Println(client.Conn.RemoteAddr().String(), "ping failed, closing connection:", err)
 				return
 			}
@@ -77,12 +83,12 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 			if !ok {
 				// Channel closed, terminate connection
 				log.Printf("%s channel closed\n", client.Conn.RemoteAddr().String())
-				client.Conn.WriteMessage(websocket.TextMessage, []byte("closed"))
+				WriteToClient(client, websocket.TextMessage, []byte("closed"))
 				return
 			}
 
 			// Send the message to the client
-			if err := client.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			if err := WriteToClient(client, websocket.TextMessage, message); err != nil {
 				log.Println(client.Conn.RemoteAddr().String(), "write error, closing connection:", err)
 				return
 			}
