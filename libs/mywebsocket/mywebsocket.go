@@ -40,8 +40,8 @@ func RemoveClient(client *mystruct.Client) {
 }
 
 func WriteToClient(client *mystruct.Client, messageType int, data []byte) error {
-	client.Lock.Lock()
-	defer client.Lock.Unlock()
+	client.ConnLock.Lock()
+	defer client.ConnLock.Unlock()
 	return client.Conn.WriteMessage(messageType, data)
 }
 
