@@ -24,6 +24,8 @@ window.onload = () => {
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");
     const ctx = canvas.getContext("2d");
+    
+    var can_recive_frame = true;
 
     socket = new WebSocket("ws://" + location.host + "/radio_ws");
     socket.binaryType = 'arraybuffer';
@@ -36,9 +38,21 @@ window.onload = () => {
         const data = event.data;
 
         if(data instanceof ArrayBuffer) {
+            if(!can_recive_frame) return;
+            
+            can_recive_frame = false;
             const blob = new Blob([data], { type: 'image/jpeg' });
             const img = new Image();
-            img.onload = () => { ctx.drawImage(img, 0, 0); }
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                can_recive_frame = true;
+                URL.revokeObjectURL(img.src);
+            }
+            img.onerror = () => {
+                console.error("frame dropped");
+                can_recive_frame = true;
+                URL.revokeObjectURL(img.src);
+            };
             img.src = URL.createObjectURL(blob);
             return;
         }
