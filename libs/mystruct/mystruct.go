@@ -9,7 +9,7 @@ import (
 type Client struct {
     Conn *websocket.Conn
     Send chan []byte
-    Lock sync.Mutex
+    ConnLock sync.Mutex
 }
 
 type Pin struct {
