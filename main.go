@@ -55,7 +55,6 @@ func main() {
     if myconst.USE_CAMERA {
         camera := mycamera.InitCamera()
         defer camera.Close()
-        http.HandleFunc("/video", mycamera.Streaming)
     }
 
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))

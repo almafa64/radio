@@ -2,39 +2,23 @@ package mycamera
 
 import (
 	"context"
-	"fmt"
-	"log"
-	"mime/multipart"
-	"net/http"
-	"net/textproto"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
+	"radio_site/libs/mywebsocket"
 
+	"github.com/gorilla/websocket"
 	"github.com/vladimirvivien/go4vl/device"
 )
 
-var (
-	frames <-chan []byte
-)
-
-func Streaming(w http.ResponseWriter, req *http.Request) {
-	// Make a multipart writer to help with streaming frames
-	mimeWriter := multipart.NewWriter(w)
-	w.Header().Set("Content-Type", fmt.Sprintf("multipart/x-mixed-replace; boundary=%s", mimeWriter.Boundary()))
-	partHeader := make(textproto.MIMEHeader)
-	partHeader.Add("Content-Type", "image/jpeg")
-
-	var frame []byte
-	for frame = range frames {
-		partWriter, err := mimeWriter.CreatePart(partHeader)
-		if err != nil {
-			log.Printf("failed to create multi-part writer: %s", err)
-			return
+func SendFrames(frames <- chan []byte) {
+	for frame := range frames {
+		mywebsocket.ClientsLock.Lock()
+		for client := range mywebsocket.Clients {
+			if err := mywebsocket.WriteToClient(client, websocket.BinaryMessage, frame); err != nil {
+				continue
+			}
 		}
-
-		if _, err := partWriter.Write(frame); err != nil {
-			log.Printf("failed to write image: %s", err)
-		}
+		mywebsocket.ClientsLock.Unlock()
 	}
 }
 
@@ -47,10 +31,10 @@ func InitCamera() *device.Device {
 
 	myerr.CheckErrMsg("failed to open device:", err)
 
-// Start camera with empty context
-	err = camera.Start(context.TODO())
+	err = camera.Start(context.Background())
 	myerr.CheckErrMsg("camera start:", err)
 
-	frames = camera.GetOutput()
+	go SendFrames(camera.GetOutput())
+
 	return camera
 }
