@@ -15,7 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var Upgrader = websocket.Upgrader{
+var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
@@ -33,7 +33,7 @@ func startFrameSender(client *mystruct.Client) {
     }
 }
 
-func AddClient(client *mystruct.Client) {
+func addClient(client *mystruct.Client) {
 	ClientsLock.Lock()
 	defer ClientsLock.Unlock()
 	Clients[client] = struct{}{}
@@ -41,21 +41,15 @@ func AddClient(client *mystruct.Client) {
 	log.Printf("%s connected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 }
 
-func RemoveClient(client *mystruct.Client) {
+func removeClient(client *mystruct.Client) {
 	ClientsLock.Lock()
 	defer ClientsLock.Unlock()
 	delete(Clients, client)
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 }
 
-func WriteToClient(client *mystruct.Client, messageType int, data []byte) error {
-	client.ConnLock.Lock()
-	defer client.ConnLock.Unlock()
-	return client.Conn.WriteMessage(messageType, data)
-}
-
 func Ws_handler(res http.ResponseWriter, req *http.Request) {
-	conn, err := Upgrader.Upgrade(res, req, nil)
+	conn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
 		log.Println("upgrade error:", err)
 		return
@@ -68,10 +62,10 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	}
 	defer client.Conn.Close()
 
-	AddClient(client)
-	defer RemoveClient(client)
+	addClient(client)
+	defer removeClient(client)
 
-	go ReadMessages(client)
+	go readMessages(client)
 
 	// wait maximum readTimeout second for pong
 	conn.SetReadDeadline(time.Now().Add(myconst.READ_TIMEOUT))
@@ -88,7 +82,7 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		select {
 		case <-heartbeatTicker.C:
 			// send ping
-			if err := WriteToClient(client, websocket.PingMessage, nil); err != nil {
+			if err := client.WriteToClient(websocket.PingMessage, nil); err != nil {
 				log.Println(client.Conn.RemoteAddr().String(), "ping failed, closing connection:", err)
 				return
 			}
@@ -96,12 +90,12 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 			if !ok {
 				// Channel closed, terminate connection
 				log.Printf("%s channel closed\n", client.Conn.RemoteAddr().String())
-				WriteToClient(client, websocket.TextMessage, []byte("closed"))
+				client.WriteToClient(websocket.TextMessage, []byte("closed"))
 				return
 			}
 
 			// Send the message to the client
-			if err := WriteToClient(client, websocket.TextMessage, message); err != nil {
+			if err := client.WriteToClient(websocket.TextMessage, message); err != nil {
 				log.Println(client.Conn.RemoteAddr().String(), "write error, closing connection:", err)
 				return
 			}
@@ -109,7 +103,7 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func ReadMessages(client *mystruct.Client) {
+func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	ClientsLock.Lock()

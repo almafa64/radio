@@ -9,7 +9,7 @@ import (
 	"github.com/vladimirvivien/go4vl/device"
 )
 
-func SendFrames(frames <- chan []byte) {
+func sendFrames(frames <-chan []byte) {
 	for frame := range frames {
 		mywebsocket.ClientsLock.Lock()
 		for client := range mywebsocket.Clients {
@@ -31,7 +31,7 @@ func InitCamera() *device.Device {
 	err = camera.Start(context.Background())
 	myerr.CheckErrMsg("camera start:", err)
 
-	go SendFrames(camera.GetOutput())
-
+	go sendFrames(camera.GetOutput())
+	
 	return camera
 }
