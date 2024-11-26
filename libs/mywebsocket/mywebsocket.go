@@ -25,10 +25,19 @@ var (
 	ClientsLock sync.Mutex
 )
 
+func startFrameSender(client *mystruct.Client) {
+    for frame := range client.FrameQueue {
+        if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
+			return
+		}
+    }
+}
+
 func AddClient(client *mystruct.Client) {
 	ClientsLock.Lock()
 	defer ClientsLock.Unlock()
 	Clients[client] = struct{}{}
+	go startFrameSender(client)
 	log.Printf("%s connected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 }
 
@@ -52,7 +61,11 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	client := &mystruct.Client{Conn: conn, Send: make(chan []byte)}
+	client := &mystruct.Client{
+		Conn: conn,
+		Send: make(chan []byte),
+		FrameQueue: make(chan []byte, 5),
+	}
 	defer client.Conn.Close()
 
 	AddClient(client)
