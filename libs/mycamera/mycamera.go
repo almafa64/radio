@@ -6,7 +6,6 @@ import (
 	"radio_site/libs/myerr"
 	"radio_site/libs/mywebsocket"
 
-	"github.com/gorilla/websocket"
 	"github.com/vladimirvivien/go4vl/device"
 )
 
@@ -14,9 +13,7 @@ func SendFrames(frames <- chan []byte) {
 	for frame := range frames {
 		mywebsocket.ClientsLock.Lock()
 		for client := range mywebsocket.Clients {
-			if err := mywebsocket.WriteToClient(client, websocket.BinaryMessage, frame); err != nil {
-				continue
-			}
+			client.FrameQueue <- frame
 		}
 		mywebsocket.ClientsLock.Unlock()
 	}

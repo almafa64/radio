@@ -10,6 +10,7 @@ type Client struct {
     Conn *websocket.Conn
     Send chan []byte
     ConnLock sync.Mutex
+    FrameQueue chan []byte
 }
 
 type Pin struct {
