@@ -8,8 +8,17 @@ import (
 	"strings"
 )
 
-func write_file(filename string, data []byte) {
-    err := os.WriteFile(filename, data, 0644)
+func write_file(filename string, pin_statuses string) {
+    var data string
+    pin_names := Read_pin_names()
+
+    for i := 0; i < len(pin_names); i++ {
+        
+ 
+        data += pin_names[i]+ ";" + string(pin_statuses[i]) + "\n"
+    }
+
+    err := os.WriteFile(filename, []byte(data), 0644)
     myerr.Check_err(err)
 }
 
@@ -19,8 +28,47 @@ func read_file(filepath string) []byte {
     return data[:len(data)-1] // remove newline
 }
 
+func Read_file_lines(filepath string) [][]string {
+    var lines [][]string
+
+    data, err := os.ReadFile(filepath)
+    myerr.Check_err(err)
+
+    string_data := string(data)
+
+    for _, line := range strings.Split(string_data, "\n") {
+        split_line := strings.Split(line, ";")
+
+        lines = append(lines, split_line)
+    }
+
+    return lines[:len(lines)-1]
+}
+
+func Read_pin_names() []string {
+    var pin_names []string
+    lines := Read_file_lines(myconst.PIN_FILE_PATH)
+
+    for _, line := range lines {
+        pin_names = append(pin_names, strings.TrimSpace(line[0]))
+    }
+
+    return pin_names
+}
+
+func Read_pin_statuses() []byte {
+    pin_statuses := ""
+    lines := Read_file_lines(myconst.PIN_FILE_PATH)
+
+    for _, line := range lines {
+        pin_statuses += strings.TrimSpace(line[1])
+    }
+
+    return []byte(pin_statuses)
+}
+
 func Write_pin_file(data []byte) {
-   write_file(myconst.PIN_FILE_PATH, data)
+   write_file(myconst.PIN_FILE_PATH, string(data))
 }
 
 func Read_pin_file() []byte{

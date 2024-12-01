@@ -5,12 +5,17 @@ import (
 )
 
 type Client struct {
-    Conn *websocket.Conn
-    Send chan []byte
+    Conn      *websocket.Conn
+    Send      chan []byte
 }
 
 type Pin struct {
     Num       int
     Status    string
     IsEnabled bool
+}
+
+type Button struct {
+    Name      string
+    Num       int
 }

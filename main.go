@@ -6,7 +6,7 @@ import "C"
 
 import (
 	"radio_site/libs/myerr"
-	"radio_site/libs/myfile"
+	// "radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
@@ -29,7 +29,7 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 
 
 func index(res http.ResponseWriter) {
-    data := myhelper.Gen_pins()
+    data := myhelper.Get_data()
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
 
     myerr.Check_err(err)
@@ -49,7 +49,7 @@ func main() {
     mytpl.Template_init()
 
     // if file doesnt exists, create it with default value
-    myfile.Check_file()
+    // myfile.Check_file()
 
     http.ListenAndServe(":"+myconst.PORT, nil)
 }

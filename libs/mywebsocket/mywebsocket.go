@@ -94,7 +94,7 @@ func ReadMessages(client *mystruct.Client) {
     defer close(client.Send)
 
     ClientsLock.Lock()
-    client.Send <- myfile.Read_pin_file()
+    client.Send <- myfile.Read_pin_statuses()
     ClientsLock.Unlock()
 
 	for {
@@ -115,8 +115,7 @@ func ReadMessages(client *mystruct.Client) {
         }
 
 		// Send the message to all connected clients
-        statuses := myhelper.Toggle_pin_status(num)
-        log.Println("Statuses:", statuses)
+        statuses := myhelper.Toggle_pin_status(num+1)
 		for c := range Clients {
             c.Send <- statuses
 		}
