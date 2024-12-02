@@ -1,24 +1,34 @@
 package myfile
 
 import (
+	"io"
+	"log"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
+	"strconv"
+	"sync"
 
 	"os"
 	"strings"
 )
 
-func write_file(filename string, pin_statuses string) {
-    var data string
+var (
+    pinFile *os.File
+    pinFileLock sync.Mutex
+)
+
+func write_file(filename string, pin_statuses []byte) {
+    var data strings.Builder
     pin_names := Read_pin_names()
 
     for i := 0; i < len(pin_names); i++ {
-        
- 
-        data += pin_names[i]+ ";" + string(pin_statuses[i]) + "\n"
+        data.WriteString(pin_names[i])
+        data.WriteByte(';')
+        data.WriteByte(pin_statuses[i])
+        data.WriteByte('\n')
     }
 
-    err := os.WriteFile(filename, []byte(data), 0644)
+    err := os.WriteFile(filename, []byte(data.String()), 0644)
     myerr.Check_err(err)
 }
 
@@ -57,51 +67,113 @@ func Read_pin_names() []string {
 }
 
 func Read_pin_statuses() []byte {
-    pin_statuses := ""
     lines := Read_file_lines(myconst.PIN_FILE_PATH)
+    pin_statuses := make([]byte, len(lines))
 
-    for _, line := range lines {
-        pin_statuses += strings.TrimSpace(line[1])
+    for i, line := range lines {
+        pin_statuses[i] = strings.TrimSpace(line[1])[0]
     }
 
-    return []byte(pin_statuses)
+    return pin_statuses
 }
 
 func Write_pin_file(data []byte) {
-    write_file(myconst.PIN_FILE_PATH, string(data))
+    write_file(myconst.PIN_FILE_PATH, data)
 }
 
 func Read_pin_file() []byte{
     return read_file(myconst.PIN_FILE_PATH)
 }
 
+// ToDo use FD (FileDescription) functions instead
+// more performant and safer than reopening the file
+// (or store data in memory instead of the file)
+
+func ReadPinFileFD(line int) []byte {
+    pinFileLock.Lock()
+    defer pinFileLock.Unlock()
+    if line == -1 {
+        info, err := pinFile.Stat()
+        myerr.Check_err(err)
+        data := make([]byte, info.Size())
+
+        pinFile.Seek(0, 0)
+        _, err = pinFile.Read(data)
+        if err != io.EOF {
+            myerr.Check_err(err)
+        }
+        return data
+    }
+
+    log.Fatalf("Not implemented!")
+    return nil
+}
+
+func ReadWholePinFileFD() []byte {
+    return ReadPinFileFD(-1)
+}
+
+func WritePinFileFD(data []byte, line int) {
+    pinFileLock.Lock()
+    defer pinFileLock.Unlock()
+    if line == -1 {
+        pinFile.Seek(0, 0)
+        _, err := pinFile.Write(data)
+        myerr.Check_err(err)
+        pinFile.Sync()
+        return
+    }
+
+    log.Fatalf("Not implemented!")
+}
+
+func WriteWholePinFileFD(data []byte) {
+    WritePinFileFD(data, -1)
+}
+
 func Check_file() {
     status_bytes, err := os.ReadFile(myconst.PIN_FILE_PATH)
     if os.IsNotExist(err) {
-        default_pins := strings.Repeat("-", myconst.MAX_NUMBER_OF_PINS) + "\n"
-        Write_pin_file([]byte(default_pins))
+        pinFile, err = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR | os.O_CREATE, 0644)
+        myerr.Check_err(err)
+        status_bytes = []byte("button 1;-")
     } else {
         myerr.Check_err(err)
+        pinFile, _ = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR, 0644)
+    }
 
-        // if last byte isnt \n then add it
-        if status_bytes[len(status_bytes)-1] != '\n' {
-            status_bytes = append(status_bytes, '\n')
-            Write_pin_file(status_bytes)
-        }
+    // if last byte isnt \n then add it
+    if len(status_bytes) == 0  || status_bytes[len(status_bytes)-1] != '\n' {
+        status_bytes = append(status_bytes, '\n')
+        WriteWholePinFileFD(status_bytes)
+    }
 
-        // if pin file length is different than MAX_NUMBER_OF_PINS then modify it
-        status_bytes = status_bytes[:len(status_bytes)-1]
-        if len(status_bytes) != myconst.MAX_NUMBER_OF_PINS {
-            statuses := string(status_bytes)
-            
-            var default_pins string
-            if len(statuses) > myconst.MAX_NUMBER_OF_PINS {
-                default_pins = statuses[:myconst.MAX_NUMBER_OF_PINS] + "\n"
-            } else {
-                default_pins = statuses + strings.Repeat("-", myconst.MAX_NUMBER_OF_PINS - len(statuses)) + "\n"
-            }
-
-            Write_pin_file([]byte(default_pins))
+    lines := Read_file_lines(myconst.PIN_FILE_PATH)
+    for i, line := range lines {
+        if len(line) != 2 {
+            lines[i] = []string{"button " + strconv.Itoa(i + 1), "-"}
         }
     }
+
+    linesLen := len(lines)
+    if linesLen == myconst.MAX_NUMBER_OF_PINS {
+        return
+    }
+
+    if linesLen > myconst.MAX_NUMBER_OF_PINS {
+        // remove not needed lines
+        lines = lines[:myconst.MAX_NUMBER_OF_PINS]
+    } else if linesLen < myconst.MAX_NUMBER_OF_PINS {
+        // add "button i" lines to fill needed lines
+        for i := linesLen; i < myconst.MAX_NUMBER_OF_PINS; i++ {
+            lines = append(lines, []string{"button " + strconv.Itoa(i + 1), "-"})
+        }
+    }
+
+    // no need to use strings.Builder, only runs at start
+    out := ""
+    for _, line := range lines {
+        out += line[0] + ";" + line[1] + "\n"
+    }
+    WriteWholePinFileFD([]byte(out))
 }

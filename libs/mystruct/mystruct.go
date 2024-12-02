@@ -19,12 +19,6 @@ func (client *Client) WriteToClient(messageType int, data []byte) error {
     return client.Conn.WriteMessage(messageType, data)
 }
 
-type Pin struct {
-    Num       int
-    Status    string
-    IsEnabled bool
-}
-
 type Button struct {
     Name      string
     Num       int

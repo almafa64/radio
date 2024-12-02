@@ -26,6 +26,7 @@ var (
 )
 
 func startFrameSender(client *mystruct.Client) {
+	defer close(client.FrameQueue)
 	for frame := range client.FrameQueue {
 		if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
 			return
@@ -106,12 +107,12 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-		ClientsLock.Lock()
-		client.Send <- myfile.Read_pin_statuses()
-		ClientsLock.Unlock()
+	ClientsLock.Lock()
+	client.Send <- myfile.Read_pin_statuses()
+	ClientsLock.Unlock()
 
 	for {
-		_, message, err := client.Conn.ReadMessage()
+		msgType, message, err := client.Conn.ReadMessage()
 		if websocket.IsCloseError(err, websocket.CloseGoingAway) {
 			return
 		} else if err != nil {
@@ -119,7 +120,9 @@ func readMessages(client *mystruct.Client) {
 			return
 		}
 
-		ClientsLock.Lock()
+		if msgType != websocket.TextMessage {
+			continue
+		}
 
 		// check if message is number and in range of max pin number
 		num, err := strconv.Atoi(string(message))
@@ -128,11 +131,11 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// Send the message to all connected clients
-		statuses := myhelper.Toggle_pin_status(num+1)
+		statuses := myhelper.Toggle_pin_status(num + 1)
+		ClientsLock.Lock()
 		for c := range Clients {
 			c.Send <- statuses
 		}
-
 		ClientsLock.Unlock()
 	}
 }
