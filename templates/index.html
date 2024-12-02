@@ -8,8 +8,9 @@
         <script src="/js/index.js"></script>
     </head>
     <body>
+        {{ if .UseCamera }} <canvas id="video" width="1280" height="720"></canvas> {{ end }}
         <div id="buttons">
-            {{ range . }}
+            {{ range .Buttons }}
             <div class="button_container">
                 <button id="radio_{{ .Num }}" type="submit" onclick="pressed(this, {{ .Num }})">{{ .Name }}</button>
             </div>

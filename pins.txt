@@ -1,7 +1,0 @@
-valami;0
-Power;1
-Hello;1
-<Button 4>;1
-<Button 5>;-
-<Button 6>;-
-<Button 7>;-

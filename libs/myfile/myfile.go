@@ -68,7 +68,7 @@ func Read_pin_statuses() []byte {
 }
 
 func Write_pin_file(data []byte) {
-   write_file(myconst.PIN_FILE_PATH, string(data))
+    write_file(myconst.PIN_FILE_PATH, string(data))
 }
 
 func Read_pin_file() []byte{
