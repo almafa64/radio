@@ -6,6 +6,7 @@ html, body {
 
 body {
     background-color: #252525;
+    padding-top: 30px;
 }
 
 #buttons {
@@ -32,6 +33,7 @@ button {
     border: #4b4b4b 2px solid;
     color: #eeeeee;
     user-select: none;
+    font-size: 20px;
 }
 
 button:hover {
@@ -47,10 +49,11 @@ button:hover {
 }
 
 #video {
-    border: 2px solid black;
-    border-radius: 3% / 5%;
+    border: 3px solid #393939;
+
     width: 50%;
     height: auto;
+
     position: relative;
     left: 50%;
     transform: translateX(-50%);
