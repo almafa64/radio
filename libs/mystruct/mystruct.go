@@ -25,7 +25,12 @@ type Pin struct {
     IsEnabled bool
 }
 
+type Button struct {
+    Name      string
+    Num       int
+}
+
 type IndexTemplate struct {
-    Pins []Pin
+    Buttons []Button
     UseCamera bool
 }

@@ -8,9 +8,10 @@ import (
 	"radio_site/libs/mycamera"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
-	"radio_site/libs/myfile"
-	"radio_site/libs/myhelper"
 	"radio_site/libs/mystruct"
+
+	// "radio_site/libs/myfile"
+	"radio_site/libs/myhelper"
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
 
@@ -30,10 +31,10 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 }
 
 func index(res http.ResponseWriter) {
-    pins := myhelper.Gen_pins()
+    buttons := myhelper.Get_data()
 
     data := mystruct.IndexTemplate {
-        Pins: pins,
+        Buttons: buttons,
         UseCamera: myconst.USE_CAMERA,
     }
 
@@ -48,7 +49,7 @@ func main() {
     }
 
     // if file doesnt exists, create it with default value
-    myfile.Check_file()
+    //myfile.Check_file()
     
     mytpl.Template_init()
 

@@ -26,11 +26,11 @@ var (
 )
 
 func startFrameSender(client *mystruct.Client) {
-    for frame := range client.FrameQueue {
-        if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
+	for frame := range client.FrameQueue {
+		if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
 			return
 		}
-    }
+	}
 }
 
 func addClient(client *mystruct.Client) {
@@ -54,13 +54,13 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		log.Println("upgrade error:", err)
 		return
 	}
+	defer conn.Close()
 
 	client := &mystruct.Client{
 		Conn: conn,
 		Send: make(chan []byte),
 		FrameQueue: make(chan []byte, 5),
 	}
-	defer client.Conn.Close()
 
 	addClient(client)
 	defer removeClient(client)
@@ -106,9 +106,9 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	ClientsLock.Lock()
-	client.Send <- myfile.Read_pin_file()
-	ClientsLock.Unlock()
+		ClientsLock.Lock()
+		client.Send <- myfile.Read_pin_statuses()
+		ClientsLock.Unlock()
 
 	for {
 		_, message, err := client.Conn.ReadMessage()
@@ -128,8 +128,7 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// Send the message to all connected clients
-		statuses := myhelper.Toggle_pin_status(num)
-		log.Println("Statuses:", statuses)
+		statuses := myhelper.Toggle_pin_status(num+1)
 		for c := range Clients {
 			c.Send <- statuses
 		}

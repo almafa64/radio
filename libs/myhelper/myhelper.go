@@ -51,7 +51,7 @@ func Get_pin_status(pin int) string {
 }
 
 func Toggle_pin_status(pin int) []byte {
-    statuses := myfile.Read_pin_file()
+    statuses := myfile.Read_pin_statuses()
 
     pin_byte := statuses[pin]
     if pin_byte == '1' {
@@ -60,6 +60,24 @@ func Toggle_pin_status(pin int) []byte {
         statuses[pin] = '1'
     }
 
-    myfile.Write_pin_file(append(statuses, '\n'))
+    myfile.Write_pin_file(statuses)
     return statuses
+}
+
+func Get_data() []mystruct.Button {
+    buttons := []mystruct.Button{}
+    data := myfile.Read_pin_names()
+
+    for i := 0; i < myconst.MAX_NUMBER_OF_PINS; i++ {
+        name := data[i]
+
+        button := mystruct.Button {
+            Name: name,
+            Num: i,
+        }
+
+        buttons = append(buttons, button)
+    }
+
+    return buttons
 }
