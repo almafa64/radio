@@ -48,6 +48,14 @@ func removeClient(client *mystruct.Client) {
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 }
 
+func broadcast(text []byte) {
+	ClientsLock.Lock()
+	for c := range Clients {
+		c.Send <- text
+	}
+	ClientsLock.Unlock()
+}
+
 func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	conn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
@@ -110,6 +118,8 @@ func readMessages(client *mystruct.Client) {
 		client.Send <- myfile.Read_pin_statuses()
 		ClientsLock.Unlock()
 
+	broadcast([]byte("uc" + strconv.Itoa(len(Clients))))
+
 	for {
 		_, message, err := client.Conn.ReadMessage()
 		if websocket.IsCloseError(err, websocket.CloseGoingAway) {
@@ -128,11 +138,7 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// Send the message to all connected clients
-		statuses := myhelper.Toggle_pin_status(num+1)
-		for c := range Clients {
-			c.Send <- statuses
-		}
-
-		ClientsLock.Unlock()
+		statuses := myhelper.Toggle_pin_status(num + 1)
+		broadcast(statuses)
 	}
 }

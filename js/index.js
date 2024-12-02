@@ -18,6 +18,9 @@ function get_button_class(button_status)
 }
 
 window.onload = () => {
+    /** @type {HTMLSpanElement} */
+    const user_count_span = document.getElementById("user_count")
+
     /** @type {HTMLButtonElement[]} */
     const buttons = document.querySelectorAll("#buttons button");
 
@@ -63,6 +66,12 @@ window.onload = () => {
         {
             alert("websocket closed")
             return;
+        }
+
+        if(data.indexOf("uc") !== -1)
+        {
+            user_count_span.innerText = data.slice(2)
+            return
         }
 
         if(buttons.length !== data.length)
