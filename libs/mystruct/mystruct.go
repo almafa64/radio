@@ -31,6 +31,6 @@ type Button struct {
 }
 
 type IndexTemplate struct {
-    Pins []Pin
+    Buttons []Button
     UseCamera bool
 }

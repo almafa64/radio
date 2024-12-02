@@ -8,6 +8,7 @@ import (
 	"radio_site/libs/mycamera"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
+	"radio_site/libs/mystruct"
 
 	// "radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
@@ -30,12 +31,12 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 }
 
 func index(res http.ResponseWriter) {
-    data := myhelper.Get_data()
+    buttons := myhelper.Get_data()
 
-    /*data := mystruct.IndexTemplate {
-        Pins: pins,
+    data := mystruct.IndexTemplate {
+        Buttons: buttons,
         UseCamera: myconst.USE_CAMERA,
-    }*/
+    }
 
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
 
