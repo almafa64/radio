@@ -47,7 +47,7 @@ window.onload = () => {
             if(!can_recive_frame) return;
             
             can_recive_frame = false;
-            const blob = new Blob([data], { type: 'image/jpeg' });
+            const blob = new Blob([data], { type: 'video/h264' });
             const img = new Image();
             img.onload = () => {
                 ctx.drawImage(img, 0, 0);

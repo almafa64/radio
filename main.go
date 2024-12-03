@@ -8,9 +8,9 @@ import (
 	"radio_site/libs/mycamera"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
+	"radio_site/libs/myfile"
 	"radio_site/libs/mystruct"
 
-	// "radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
@@ -49,7 +49,7 @@ func main() {
     }
 
     // if file doesnt exists, create it with default value
-    //myfile.Check_file()
+    myfile.Check_file()
     
     mytpl.Template_init()
 

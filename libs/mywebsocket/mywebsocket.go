@@ -47,6 +47,7 @@ var (
 )
 
 func startFrameSender(client *mystruct.Client) {
+	defer close(client.FrameQueue)
 	for frame := range client.FrameQueue {
 		if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
 			return
@@ -154,7 +155,7 @@ func readMessages(client *mystruct.Client) {
 	broadcast([]byte("u" + builder.String()))
 
 	for {
-		_, message, err := client.Conn.ReadMessage()
+		msgType, message, err := client.Conn.ReadMessage()
 		if websocket.IsCloseError(err, websocket.CloseGoingAway) {
 			return
 		} else if err != nil {
@@ -162,7 +163,9 @@ func readMessages(client *mystruct.Client) {
 			return
 		}
 
-		ClientsLock.Lock()
+		if msgType != websocket.TextMessage {
+			continue
+		}
 
 		// check if message is number and in range of max pin number
 		num, err := strconv.Atoi(string(message))
