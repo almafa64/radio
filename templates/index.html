@@ -9,6 +9,7 @@
     </head>
     <body>
         <p>User count: <span id="user_count"></span></p>
+        <ul id="users"></ul>
         {{ if .UseCamera }} <canvas id="video" width="1280" height="720"></canvas> {{ end }}
         <div id="buttons">
             {{ range .Buttons }}

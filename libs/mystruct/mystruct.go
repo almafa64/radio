@@ -11,6 +11,7 @@ type Client struct {
     Send chan []byte
     ConnLock sync.Mutex
     FrameQueue chan []byte
+    Name string
 }
 
 func (client *Client) WriteToClient(messageType int, data []byte) error {

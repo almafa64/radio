@@ -2,12 +2,15 @@ package mywebsocket
 
 import (
 	"radio_site/libs/myconst"
+	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
 	"radio_site/libs/mystruct"
+	"strings"
 
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -18,6 +21,24 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		host := r.Header.Get("X-Host")
+		if host == "" {
+			host = r.Host
+		}
+
+		if strings.Contains(host, "localhost") {
+			return true
+		}
+
+		u, err := url.Parse(r.Header["Origin"][0])
+		if err != nil {
+			myerr.CheckErrMsg("origin error: ", err)
+			return false
+		}
+
+		return strings.EqualFold(u.Hostname(), host)
+	},
 }
 
 var (
@@ -64,10 +85,17 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	}
 	defer conn.Close()
 
+	name := req.Header.Get("X-User")
+	if name == "" {
+		log.Println(req.RemoteAddr, " has no name")
+		name = req.RemoteAddr
+	}
+
 	client := &mystruct.Client{
 		Conn: conn,
 		Send: make(chan []byte),
 		FrameQueue: make(chan []byte, 5),
+		Name: name,
 	}
 
 	addClient(client)
@@ -114,11 +142,16 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-		ClientsLock.Lock()
-		client.Send <- myfile.Read_pin_statuses()
-		ClientsLock.Unlock()
+	ClientsLock.Lock()
+	client.Send <- myfile.Read_pin_statuses()
+	var builder strings.Builder
+	for client := range Clients {
+		builder.WriteString(client.Name)
+		builder.WriteByte(',')
+	}
+	ClientsLock.Unlock()
 
-	broadcast([]byte("uc" + strconv.Itoa(len(Clients))))
+	broadcast([]byte("u" + builder.String()))
 
 	for {
 		_, message, err := client.Conn.ReadMessage()

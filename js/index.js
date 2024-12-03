@@ -18,8 +18,11 @@ function get_button_class(button_status)
 }
 
 window.onload = () => {
+    /** @type {HTMLUListElement} */
+    const user_list = document.getElementById("users");
+
     /** @type {HTMLSpanElement} */
-    const user_count_span = document.getElementById("user_count")
+    const user_count_span = document.getElementById("user_count");
 
     /** @type {HTMLButtonElement[]} */
     const buttons = document.querySelectorAll("#buttons button");
@@ -68,9 +71,19 @@ window.onload = () => {
             return;
         }
 
-        if(data.indexOf("uc") !== -1)
+        if(data[0] == "u")
         {
-            user_count_span.innerText = data.slice(2)
+            const user_text = data.slice(1)
+            const users = user_text.split(",")
+            users.pop() // remove last empty entry
+            user_count_span.innerText = users.length;
+            user_list.innerHTML = "";
+            for(var user of users)
+            {
+                const li = document.createElement("li");
+                li.innerText = user;
+                user_list.appendChild(li);
+            }
             return
         }
 
