@@ -6,30 +6,9 @@ import (
 	"radio_site/libs/mystruct"
 )
 
-func Gen_pins() []mystruct.Pin {
-    all_pins := []mystruct.Pin{}
-    for i := 0; i < myconst.MAX_NUMBER_OF_PINS; i++ {
-        status := Get_pin_status(i)
-
-        pin := mystruct.Pin{
-            Num: i + 1,
-            Status: status,
-            IsEnabled: false,
-        }
-
-        if status != "" {
-            pin.IsEnabled = true
-        }
-
-        all_pins = append(all_pins, pin)
-    }
-
-    return all_pins
-}
-
 func Overall_bin_status() int {
     dec_data := 0
-    statuses := myfile.Read_pin_file()
+    statuses := myfile.Read_pin_statuses()
     
     for i := 0; i < myconst.MAX_NUMBER_OF_PINS; i++ {
 		if statuses[i] == '1' {
@@ -41,7 +20,7 @@ func Overall_bin_status() int {
 }
 
 func Get_pin_status(pin int) string {
-    status := myfile.Read_pin_file()[pin]
+    status := myfile.Read_pin_statuses()[pin]
 
     switch(status) {
         case '1': return "on"
