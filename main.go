@@ -51,6 +51,10 @@ func main() {
     // if file doesnt exists, create it with default value
     myfile.Check_file()
     
+    if myconst.USE_PARALLEL && !C.enable_perm() {
+        log.Fatalln("Failed to get access to port!")
+    }
+
     mytpl.Template_init()
 
     if myconst.USE_CAMERA {

@@ -12,26 +12,22 @@
 #define CLEAR_BIT(data, bit)            ((data) &= ~BIT(bit))
 #define CHANGE_BIT(data, bit)           ((data) ^= BIT(bit))
 
-void enable_perm() {
+bool enable_perm() {
     if (ioperm(base, 1, 1)) {       
         printf("Access denied to %x\n", base);
+        return false;
     }
+    return true;
 }
 
-void disable_perm() {
+bool disable_perm() {
     if (ioperm(base, 1, 0)) {
         printf("Couldn't revoke access to %x\n", base);
+        return false;
     }
+    return true;
 }
 
-void set_pin(int pin, int data, bool level) {
-    if (level) {
-        SET_BIT(data, pin); // data |= 1U << bit;
-    } else {
-        CLEAR_BIT(data, pin); // data &= ~(1U << bit);
-    }
-
-    printf("0x%02x\n", data);
-
-    // outb(data, base);
+void set_pins(int statuses) {
+    outb(statuses, base);
 }

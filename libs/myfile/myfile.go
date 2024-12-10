@@ -1,5 +1,8 @@
 package myfile
 
+// #cgo LDFLAGS: -lm
+// #include "../../c_main.h"
+import "C"
 import (
 	"io"
 	"log"
@@ -17,7 +20,23 @@ var (
     pinFileLock sync.Mutex
 )
 
-func write_file(filename string, pin_statuses []byte) {
+func write_port(pin_statuses []byte) {
+    if !myconst.USE_PARALLEL { return }
+    
+    statuses := C.int(0)
+
+    for i, e := range pin_statuses {
+        if e != '1' { continue }
+
+        statuses |= 1 << i
+    }
+
+    C.set_pins(statuses)
+}
+
+func Write_pin_file(pin_statuses []byte) {
+    write_port(pin_statuses)
+
     var data strings.Builder
     pin_names := Read_pin_names()
 
@@ -28,39 +47,29 @@ func write_file(filename string, pin_statuses []byte) {
         data.WriteByte('\n')
     }
 
-    err := os.WriteFile(filename, []byte(data.String()), 0644)
-    myerr.Check_err(err)
-}
-
-func read_file(filepath string) []byte {
-    data, err := os.ReadFile(filepath)
-    myerr.Check_err(err)
-    return data[:len(data)-1] // remove newline
+    WriteWholePinFileFD([]byte(data.String()))
 }
 
 func Read_file_lines(filepath string) [][]string {
-    var lines [][]string
-
-    data, err := os.ReadFile(filepath)
-    myerr.Check_err(err)
-
+    data := ReadWholePinFileFD()
     string_data := string(data)
 
-    for _, line := range strings.Split(string_data, "\n") {
-        split_line := strings.Split(line, ";")
+    splitted_lines := strings.Split(string_data, "\n")
+    lines := make([][]string, len(splitted_lines))
 
-        lines = append(lines, split_line)
+    for i, line := range splitted_lines{
+        lines[i] = strings.Split(line, ";")
     }
 
-    return lines[:len(lines)-1]
+    return lines[:len(lines)-1] // remove newline
 }
 
 func Read_pin_names() []string {
-    var pin_names []string
     lines := Read_file_lines(myconst.PIN_FILE_PATH)
+    pin_names := make([]string, len(lines))
 
-    for _, line := range lines {
-        pin_names = append(pin_names, strings.TrimSpace(line[0]))
+    for i, line := range lines {
+        pin_names[i] = strings.TrimSpace(line[0])
     }
 
     return pin_names
@@ -75,14 +84,6 @@ func Read_pin_statuses() []byte {
     }
 
     return pin_statuses
-}
-
-func Write_pin_file(data []byte) {
-    write_file(myconst.PIN_FILE_PATH, data)
-}
-
-func Read_pin_file() []byte{
-    return read_file(myconst.PIN_FILE_PATH)
 }
 
 // ToDo use FD (FileDescription) functions instead
@@ -132,20 +133,20 @@ func WriteWholePinFileFD(data []byte) {
 }
 
 func Check_file() {
-    status_bytes, err := os.ReadFile(myconst.PIN_FILE_PATH)
+    text, err := os.ReadFile(myconst.PIN_FILE_PATH)
     if os.IsNotExist(err) {
         pinFile, err = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR | os.O_CREATE, 0644)
         myerr.Check_err(err)
-        status_bytes = []byte("button 1;-")
+        text = []byte("button 1;-")
     } else {
         myerr.Check_err(err)
         pinFile, _ = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR, 0644)
     }
 
     // if last byte isnt \n then add it
-    if len(status_bytes) == 0  || status_bytes[len(status_bytes)-1] != '\n' {
-        status_bytes = append(status_bytes, '\n')
-        WriteWholePinFileFD(status_bytes)
+    if len(text) == 0  || text[len(text)-1] != '\n' {
+        text = append(text, '\n')
+        WriteWholePinFileFD(text)
     }
 
     lines := Read_file_lines(myconst.PIN_FILE_PATH)
@@ -170,10 +171,19 @@ func Check_file() {
         }
     }
 
+    statuses := make([]byte, len(lines))
+
     // no need to use strings.Builder, only runs at start
     out := ""
-    for _, line := range lines {
+    for i, line := range lines {
         out += line[0] + ";" + line[1] + "\n"
+
+        if line[1] == "1" {
+            statuses[i] = '1'
+        } else {
+            statuses[i] = '0'
+        }
     }
+    write_port(statuses)
     WriteWholePinFileFD([]byte(out))
 }
