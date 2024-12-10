@@ -102,6 +102,8 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	if name == "" {
 		log.Println(req.RemoteAddr, " has no name")
 		name = req.RemoteAddr
+	} else {
+		name += "(" + req.RemoteAddr + ")"
 	}
 
 	client := &mystruct.Client{
