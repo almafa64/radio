@@ -20,7 +20,7 @@ import (
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	WriteBufferSize: 4096,
 	CheckOrigin: func(r *http.Request) bool {
 		host := r.Header.Get("X-Host")
 		if host == "" {
@@ -46,6 +46,15 @@ var (
 	ClientsLock sync.Mutex
 )
 
+func clientsToString() string {
+	var builder strings.Builder
+	for client := range Clients {
+		builder.WriteString(client.Name)
+		builder.WriteByte(',')
+	}
+	return builder.String()
+}
+
 func startFrameSender(client *mystruct.Client) {
 	defer close(client.FrameQueue)
 	for frame := range client.FrameQueue {
@@ -65,9 +74,12 @@ func addClient(client *mystruct.Client) {
 
 func removeClient(client *mystruct.Client) {
 	ClientsLock.Lock()
-	defer ClientsLock.Unlock()
 	delete(Clients, client)
+	users := clientsToString()
+	ClientsLock.Unlock()
+
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
+	broadcast([]byte("u" + users))
 }
 
 func broadcast(text []byte) {
@@ -90,6 +102,8 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	if name == "" {
 		log.Println(req.RemoteAddr, " has no name")
 		name = req.RemoteAddr
+	} else {
+		name += "(" + req.RemoteAddr + ")"
 	}
 
 	client := &mystruct.Client{
@@ -145,14 +159,10 @@ func readMessages(client *mystruct.Client) {
 
 	ClientsLock.Lock()
 	client.Send <- myfile.Read_pin_statuses()
-	var builder strings.Builder
-	for client := range Clients {
-		builder.WriteString(client.Name)
-		builder.WriteByte(',')
-	}
+	users := clientsToString()
 	ClientsLock.Unlock()
 
-	broadcast([]byte("u" + builder.String()))
+	broadcast([]byte("u" + users))
 
 	for {
 		msgType, message, err := client.Conn.ReadMessage()
