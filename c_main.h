@@ -1,5 +1,5 @@
 #include <stdbool.h>
 
-void enable_perm();
-void disable_perm();
-void set_pin(int pin, int value, bool voltage);
+bool enable_perm();
+bool disable_perm();
+void set_pins(int statuses);
