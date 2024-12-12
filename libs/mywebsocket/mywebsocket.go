@@ -1,5 +1,7 @@
 package mywebsocket
 
+// #include "../../c_main.h"
+import "C"
 import (
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
@@ -156,6 +158,11 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
+
+	if myconst.USE_PARALLEL && !C.enable_perm() {
+        log.Println("Failed to get access to port for '" + client.Name + "'")
+		return
+    }
 
 	ClientsLock.Lock()
 	client.Send <- myfile.Read_pin_statuses()

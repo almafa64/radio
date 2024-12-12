@@ -1,6 +1,5 @@
 package myfile
 
-// #cgo LDFLAGS: -lm
 // #include "../../c_main.h"
 import "C"
 import (
