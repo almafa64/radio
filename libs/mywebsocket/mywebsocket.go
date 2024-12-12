@@ -103,9 +103,9 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	name := req.Header.Get("X-User")
 	if name == "" {
 		log.Println(req.RemoteAddr, " has no name")
-		name = req.RemoteAddr
+		name = req.Header.Get("X-Real-IP")
 	} else {
-		name += "(" + req.RemoteAddr + ")"
+		name += "(" + req.Header.Get("X-Real-IP") + ")"
 	}
 
 	client := &mystruct.Client{
@@ -159,11 +159,6 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	if myconst.USE_PARALLEL && !C.enable_perm() {
-        log.Println("Failed to get access to port for '" + client.Name + "'")
-		return
-    }
-
 	ClientsLock.Lock()
 	client.Send <- myfile.Read_pin_statuses()
 	users := clientsToString()
@@ -191,6 +186,11 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// Send the message to all connected clients
+		if myconst.USE_PARALLEL && !C.enable_perm() {
+			log.Println("Failed to get access to port for '" + client.Name + "'")
+			return
+		}
+
 		statuses := myhelper.Toggle_pin_status(num + 1)
 		broadcast(statuses)
 	}
