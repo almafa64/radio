@@ -1,7 +1,5 @@
 package mywebsocket
 
-// #include "../../c_main.h"
-import "C"
 import (
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
