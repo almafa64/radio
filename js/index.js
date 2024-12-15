@@ -1,11 +1,17 @@
 /** @type {WebSocket} */
 var socket;
 
-async function pressed(button, number)
+/** pointer_id: button_number */
+const holding_buttons = {};
+
+/**
+ * @param {HTMLButtonElement} button 
+ * @param {number} number 
+ */
+function pressed(button, number)
 {
     if(button.classList == "") return;
-
-    socket.send(number - 1);
+    socket.send(number);
 }
 
 function get_button_class(button_status)
@@ -17,6 +23,26 @@ function get_button_class(button_status)
     throw new Error("no such character: " + button_status);
 }
 
+window.onblur = (e) => {
+    for(var k in holding_buttons)
+    {
+        window.onpointerleave({pointerId: k})
+    }
+}
+
+window.onpointerup = window.onpointercancel = (ev) => {
+    const radio_number = holding_buttons[ev.pointerId];
+    if(!radio_number) return;
+
+    pressed(document.getElementById(`radio_${radio_number}`), radio_number);
+    delete holding_buttons[ev.pointerId];
+
+    /*if(Object.entries(holding_buttons).length == 0)
+    {
+        document.body.style.touchAction = "auto";
+    }*/
+}
+
 window.onload = () => {
     /** @type {HTMLUListElement} */
     const user_list = document.getElementById("users");
@@ -26,6 +52,19 @@ window.onload = () => {
 
     /** @type {HTMLButtonElement[]} */
     const buttons = document.querySelectorAll("#buttons button");
+
+    for(const button of buttons)
+    {
+        if(button.getAttribute("push") == null) continue;
+
+        button.onpointerdown = (e) => {
+            if(e.button != 0) return;
+
+            const number = button.id.split("_")[1];
+            pressed(button, number);
+            holding_buttons[e.pointerId] = number;
+        }
+    }
 
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");

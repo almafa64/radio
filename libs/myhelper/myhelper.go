@@ -6,15 +6,18 @@ import (
 	"radio_site/libs/mystruct"
 )
 
+func InvertStatusByte(statuses []byte, pin int) {
+    if statuses[pin] == '1' {
+        statuses[pin] = '0'
+    } else if statuses[pin] == '0' {
+        statuses[pin] = '1'
+    }
+}
+
 func Toggle_pin_status(pin int) []byte {
     statuses := myfile.Read_pin_statuses()
 
-    pin_byte := statuses[pin]
-    if pin_byte == '1' {
-        statuses[pin] = '0'
-    } else if pin_byte == '0' {
-        statuses[pin] = '1'
-    }
+    InvertStatusByte(statuses, pin)
 
     myfile.Write_pin_file(statuses)
     return statuses
@@ -30,6 +33,7 @@ func Get_data() []mystruct.Button {
         buttons[i] = mystruct.Button {
             Name: name,
             Num: i,
+            IsToogle: false,
         }
     }
 

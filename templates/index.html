@@ -14,7 +14,11 @@
         <div id="buttons">
             {{ range .Buttons }}
             <div class="button_container">
-                <button id="radio_{{ .Num }}" type="submit" onclick="pressed(this, {{ .Num }})">{{ .Name }}</button>
+                {{ if .IsToogle }}
+                <button id="radio_{{ .Num }}" toggle onclick="pressed(this, {{ .Num }})">{{ .Name }}</button>
+                {{ else }}
+                <button id="radio_{{ .Num }}" push>{{ .Name }}</button>
+                {{ end }}
             </div>
             {{ end }}
         </div>

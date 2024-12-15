@@ -46,6 +46,8 @@ var (
 	ClientsLock sync.Mutex
 )
 
+var ButtonsHeld sync.Map
+
 func clientsToString() string {
 	var builder strings.Builder
 	for client := range Clients {
@@ -77,6 +79,13 @@ func removeClient(client *mystruct.Client) {
 	delete(Clients, client)
 	users := clientsToString()
 	ClientsLock.Unlock()
+
+	ButtonsHeld.Range(func(key, value any) bool {
+		if value != client { return true }
+
+		ButtonsHeld.Delete(key)
+		return false
+	})
 
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
 	broadcast([]byte("u" + users))
@@ -154,11 +163,20 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func applyHeldButtons(statuses []byte) []byte {
+	ButtonsHeld.Range(func(key, value any) bool {
+		pin := key.(int)
+		myhelper.InvertStatusByte(statuses, pin)
+		return true
+	})
+	return statuses
+}
+
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	ClientsLock.Lock()
-	client.Send <- myfile.Read_pin_statuses()
+	client.Send <- applyHeldButtons(myfile.Read_pin_statuses())
 	users := clientsToString()
 	ClientsLock.Unlock()
 
@@ -178,13 +196,26 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// check if message is number and in range of max pin number
-		num, err := strconv.Atoi(string(message))
-		if err != nil || num >= myconst.MAX_NUMBER_OF_PINS {
+		pin, err := strconv.Atoi(string(message))
+		if err != nil || pin >= myconst.MAX_NUMBER_OF_PINS {
 			continue
 		}
 
-		// Send the message to all connected clients
-		statuses := myhelper.Toggle_pin_status(num + 1)
+		isToggleButton := false // check if button is toggle
+
+		var statuses []byte
+
+		if !isToggleButton {
+			statuses = myfile.Read_pin_statuses()
+			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
+			if loaded && value == client {
+				ButtonsHeld.Delete(pin)
+			}
+		} else {
+			statuses = myhelper.Toggle_pin_status(pin)
+		}
+
+		applyHeldButtons(statuses)
 		broadcast(statuses)
 	}
 }
