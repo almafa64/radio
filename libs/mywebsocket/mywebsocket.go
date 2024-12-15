@@ -57,6 +57,27 @@ func clientsToString() string {
 	return builder.String()
 }
 
+func holdingClientsToString() string {
+	var builder strings.Builder
+	ButtonsHeld.Range(func(key, value any) bool {
+		builder.WriteString(value.(*mystruct.Client).Name)
+		builder.WriteByte(';')
+		builder.WriteString(strconv.Itoa(key.(int)))
+		builder.WriteByte(',')
+		return true
+	})
+	return builder.String()
+}
+
+func applyHeldButtons(statuses []byte) []byte {
+	ButtonsHeld.Range(func(key, value any) bool {
+		pin := key.(int)
+		myhelper.InvertStatusByte(statuses, pin)
+		return true
+	})
+	return statuses
+}
+
 func startFrameSender(client *mystruct.Client) {
 	defer close(client.FrameQueue)
 	for frame := range client.FrameQueue {
@@ -87,8 +108,12 @@ func removeClient(client *mystruct.Client) {
 		return false
 	})
 
+	usersHolding := holdingClientsToString()
+
 	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
+	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
+	broadcast(applyHeldButtons(myfile.Read_pin_statuses()))
 }
 
 func broadcast(text []byte) {
@@ -163,15 +188,6 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func applyHeldButtons(statuses []byte) []byte {
-	ButtonsHeld.Range(func(key, value any) bool {
-		pin := key.(int)
-		myhelper.InvertStatusByte(statuses, pin)
-		return true
-	})
-	return statuses
-}
-
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
@@ -180,6 +196,8 @@ func readMessages(client *mystruct.Client) {
 	users := clientsToString()
 	ClientsLock.Unlock()
 
+	usersHolding := holdingClientsToString()
+	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
 
 	for {
@@ -210,6 +228,12 @@ func readMessages(client *mystruct.Client) {
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
 			if loaded && value == client {
 				ButtonsHeld.Delete(pin)
+
+				usersHolding := holdingClientsToString()
+				broadcast([]byte("h" + usersHolding))
+			} else if !loaded {
+				usersHolding := holdingClientsToString()
+				broadcast([]byte("h" + usersHolding))
 			}
 		} else {
 			statuses = myhelper.Toggle_pin_status(pin)

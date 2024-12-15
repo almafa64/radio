@@ -15,9 +15,9 @@
             {{ range .Buttons }}
             <div class="button_container">
                 {{ if .IsToogle }}
-                <button id="radio_{{ .Num }}" toggle onclick="pressed(this, {{ .Num }})">{{ .Name }}</button>
+                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" toggle onclick="pressed(this, {{ .Num }})">{{ .Name }}</button>
                 {{ else }}
-                <button id="radio_{{ .Num }}" push>{{ .Name }}</button>
+                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" push>{{ .Name }}</button>
                 {{ end }}
             </div>
             {{ end }}
