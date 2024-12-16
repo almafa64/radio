@@ -234,12 +234,6 @@ func readMessages(client *mystruct.Client) {
 			if value != client { continue }
 			if loaded {
 				ButtonsHeld.Delete(pin)
-
-				usersHolding := holdingClientsToString()
-				broadcast([]byte("h" + usersHolding))
-			} else if !loaded {
-				usersHolding := holdingClientsToString()
-				broadcast([]byte("h" + usersHolding))
 			}
 			usersHolding := holdingClientsToString()
 			broadcast([]byte("h" + usersHolding))
