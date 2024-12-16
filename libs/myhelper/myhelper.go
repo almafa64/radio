@@ -25,15 +25,16 @@ func Toggle_pin_status(pin int) []byte {
 
 func Get_data() []mystruct.Button {
     buttons := make([]mystruct.Button, myconst.MAX_NUMBER_OF_PINS)
-    data := myfile.Read_pin_names()
+    names := myfile.Read_pin_names()
+    modes := myfile.Read_pin_modes()
 
     for i := 0; i < myconst.MAX_NUMBER_OF_PINS; i++ {
-        name := data[i]
+        name := names[i]
 
         buttons[i] = mystruct.Button {
             Name: name,
             Num: i,
-            IsToogle: false,
+            IsToogle: modes[i] == 'T',
         }
     }
 

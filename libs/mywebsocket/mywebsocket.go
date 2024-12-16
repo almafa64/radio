@@ -219,27 +219,26 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		isToggleButton := false // check if button is toggle
+		modes := myfile.Read_pin_modes()
+		isToggleButton := modes[pin] == 'T'
 
 		var statuses []byte
 
 		if !isToggleButton {
 			statuses = myfile.Read_pin_statuses()
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
-			if loaded && value == client {
+			if value != client { continue }
+			if loaded {
 				ButtonsHeld.Delete(pin)
-
-				usersHolding := holdingClientsToString()
-				broadcast([]byte("h" + usersHolding))
-			} else if !loaded {
-				usersHolding := holdingClientsToString()
-				broadcast([]byte("h" + usersHolding))
 			}
+			usersHolding := holdingClientsToString()
+			broadcast([]byte("h" + usersHolding))
 		} else {
 			statuses = myhelper.Toggle_pin_status(pin)
 		}
 
 		applyHeldButtons(statuses)
+		myfile.WritePort(statuses)
 		broadcast(statuses)
 	}
 }

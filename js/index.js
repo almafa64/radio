@@ -26,7 +26,7 @@ function get_button_class(button_status)
 window.onblur = (e) => {
     for(var k in holding_buttons)
     {
-        window.onpointerleave({pointerId: k})
+        window.onpointerup({pointerId: k})
     }
 }
 
