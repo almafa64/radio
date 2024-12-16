@@ -71,7 +71,7 @@ func addClient(client *mystruct.Client) {
 	defer ClientsLock.Unlock()
 	Clients[client] = struct{}{}
 	go startFrameSender(client)
-	log.Printf("%s connected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
+	log.Printf("%s connected. Total clients: %d", client.Name, len(Clients))
 }
 
 func removeClient(client *mystruct.Client) {
@@ -80,7 +80,7 @@ func removeClient(client *mystruct.Client) {
 	users := clientsToString()
 	ClientsLock.Unlock()
 
-	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
+	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
 	broadcast([]byte("u" + users))
 }
 
@@ -102,10 +102,13 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 
 	name := req.Header.Get("X-User")
 	if name == "" {
-		log.Println(req.RemoteAddr, " has no name")
 		name = req.Header.Get("X-Real-IP")
+		if name == "" {
+			name = req.RemoteAddr
+		}
+		log.Println(name, "has no name")
 	} else {
-		name += "(" + req.Header.Get("X-Real-IP") + ")"
+		name += " (" + req.Header.Get("X-Real-IP") + ")"
 	}
 
 	client := &mystruct.Client{
@@ -136,20 +139,20 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		case <-heartbeatTicker.C:
 			// send ping
 			if err := client.WriteToClient(websocket.PingMessage, nil); err != nil {
-				log.Println(client.Conn.RemoteAddr().String(), "ping failed, closing connection:", err)
+				log.Println(client.Name, "ping failed, closing connection:", err)
 				return
 			}
 		case message, ok := <-client.Send:
 			if !ok {
 				// Channel closed, terminate connection
-				log.Printf("%s channel closed\n", client.Conn.RemoteAddr().String())
+				log.Printf("%s channel closed\n", client.Name)
 				client.WriteToClient(websocket.TextMessage, []byte("closed"))
 				return
 			}
 
 			// Send the message to the client
 			if err := client.WriteToClient(websocket.TextMessage, message); err != nil {
-				log.Println(client.Conn.RemoteAddr().String(), "write error, closing connection:", err)
+				log.Println(client.Name, "write error, closing connection:", err)
 				return
 			}
 		}
