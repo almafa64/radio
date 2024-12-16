@@ -1,13 +1,11 @@
 package myfile
 
-// #cgo LDFLAGS: -lm
-// #include "../../c_main.h"
-import "C"
 import (
 	"io"
 	"log"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
+	"radio_site/libs/myparallel"
 	"strconv"
 	"sync"
 
@@ -21,20 +19,6 @@ var (
 )
 
 var pushButtons = make(map[int]struct{})
-
-func WritePort(pin_statuses []byte) {
-    if !myconst.USE_PARALLEL { return }
-
-    statuses := C.int(0)
-
-    for i, e := range pin_statuses {
-        if e != '1' { continue }
-
-        statuses |= 1 << i
-    }
-
-    C.set_pins(statuses)
-}
 
 func Write_pin_file(pin_statuses []byte) {
     var data strings.Builder
@@ -230,6 +214,6 @@ func Check_file() {
             statuses[i] = '0'
         }
     }
-    WritePort(statuses)
+    myparallel.WritePort(statuses)
     WriteWholePinFileFD([]byte(out))
 }

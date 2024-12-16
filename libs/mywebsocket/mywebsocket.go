@@ -5,6 +5,7 @@ import (
 	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
+	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
 	"strings"
 
@@ -238,7 +239,7 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		applyHeldButtons(statuses)
-		myfile.WritePort(statuses)
+		myparallel.WritePort(statuses)
 		broadcast(statuses)
 	}
 }
