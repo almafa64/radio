@@ -111,7 +111,7 @@ func removeClient(client *mystruct.Client) {
 
 	usersHolding := holdingClientsToString()
 
-	log.Printf("%s disconnected. Total clients: %d", client.Conn.RemoteAddr().String(), len(Clients))
+	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
 	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
 	broadcast(applyHeldButtons(myfile.Read_pin_statuses()))
