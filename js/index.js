@@ -61,6 +61,7 @@ window.onload = () => {
             if(e.button != 0) return;
 
             const number = button.getAttribute("pin_num");
+            if(button.querySelector("p") !== null) return;
             pressed(button, number);
             holding_buttons[e.pointerId] = number;
         }
