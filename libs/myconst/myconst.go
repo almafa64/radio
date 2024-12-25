@@ -18,4 +18,4 @@ const USE_PARALLEL = true
 
 const USE_CAMERA = true
 const CAMERA_PATH = "/dev/video0"
-var CAMERA_FORMAT = v4l2.PixFormat{PixelFormat: v4l2.PixelFmtH264, Width: 1280, Height: 720}
+var CAMERA_FORMAT = v4l2.PixFormat{PixelFormat: v4l2.PixelFmtMJPEG, Width: 1280, Height: 720}
