@@ -1,12 +1,11 @@
 package mywebsocket
 
-// #include "../../c_main.h"
-import "C"
 import (
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
+	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
 	"strings"
 
@@ -48,6 +47,8 @@ var (
 	ClientsLock sync.Mutex
 )
 
+var ButtonsHeld sync.Map
+
 func clientsToString() string {
 	var builder strings.Builder
 	for client := range Clients {
@@ -55,6 +56,27 @@ func clientsToString() string {
 		builder.WriteByte(',')
 	}
 	return builder.String()
+}
+
+func holdingClientsToString() string {
+	var builder strings.Builder
+	ButtonsHeld.Range(func(key, value any) bool {
+		builder.WriteString(value.(*mystruct.Client).Name)
+		builder.WriteByte(';')
+		builder.WriteString(strconv.Itoa(key.(int)))
+		builder.WriteByte(',')
+		return true
+	})
+	return builder.String()
+}
+
+func applyHeldButtons(statuses []byte) []byte {
+	ButtonsHeld.Range(func(key, value any) bool {
+		pin := key.(int)
+		myhelper.InvertStatusByte(statuses, pin)
+		return true
+	})
+	return statuses
 }
 
 func startFrameSender(client *mystruct.Client) {
@@ -80,8 +102,19 @@ func removeClient(client *mystruct.Client) {
 	users := clientsToString()
 	ClientsLock.Unlock()
 
+	ButtonsHeld.Range(func(key, value any) bool {
+		if value != client { return true }
+
+		ButtonsHeld.Delete(key)
+		return false
+	})
+
+	usersHolding := holdingClientsToString()
+
 	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
+	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
+	broadcast(applyHeldButtons(myfile.Read_pin_statuses()))
 }
 
 func broadcast(text []byte) {
@@ -163,10 +196,12 @@ func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	ClientsLock.Lock()
-	client.Send <- myfile.Read_pin_statuses()
+	client.Send <- applyHeldButtons(myfile.Read_pin_statuses())
 	users := clientsToString()
 	ClientsLock.Unlock()
 
+	usersHolding := holdingClientsToString()
+	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
 
 	for {
@@ -183,18 +218,31 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		// check if message is number and in range of max pin number
-		num, err := strconv.Atoi(string(message))
-		if err != nil || num >= myconst.MAX_NUMBER_OF_PINS {
+		pin, err := strconv.Atoi(string(message))
+		if err != nil || pin >= myconst.MAX_NUMBER_OF_PINS {
 			continue
 		}
 
-		// Send the message to all connected clients
-		if myconst.USE_PARALLEL && !C.enable_perm() {
-			log.Println("Failed to get access to port for '" + client.Name + "'")
-			return
+		modes := myfile.Read_pin_modes()
+		isToggleButton := modes[pin] == 'T'
+
+		var statuses []byte
+
+		if !isToggleButton {
+			statuses = myfile.Read_pin_statuses()
+			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
+			if value != client { continue }
+			if loaded {
+				ButtonsHeld.Delete(pin)
+			}
+			usersHolding := holdingClientsToString()
+			broadcast([]byte("h" + usersHolding))
+		} else {
+			statuses = myhelper.Toggle_pin_status(pin)
 		}
 
-		statuses := myhelper.Toggle_pin_status(num + 1)
+		applyHeldButtons(statuses)
+		myparallel.WritePort(statuses)
 		broadcast(statuses)
 	}
 }
