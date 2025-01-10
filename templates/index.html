@@ -8,9 +8,15 @@
         <script src="/js/index.js"></script>
     </head>
     <body>
-        <p>User count: <span id="user_count"></span></p>
-        <ul id="users"></ul>
-        {{ if .UseCamera }} <canvas id="video" width="1280" height="720"></canvas> {{ end }}
+        <div id="info-container">
+            <div id="user-container">
+                <p id="user-header">User count: <span id="user_count"></span></p>
+                <ul id="users"></ul>
+            </div>
+
+            {{ if .UseCamera }} <canvas id="video" width="1280" height="720"></canvas> {{ end }}
+        </div>
+
         <div id="buttons">
             {{ range .Buttons }}
             <div class="button_container">

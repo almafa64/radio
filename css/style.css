@@ -19,12 +19,27 @@ body {
     justify-content: space-around;
 }
 
+#info-container {
+   display: flex; 
+   flex-direction: row;
+}
+
 .button_container {
     width: 50%;
     height: 20%;
     display: flex;
     justify-content: space-around;
     align-items: center;
+}
+
+#user-container {
+    margin-left: 100px;
+    width: 15%;
+}
+
+#user-header {
+    font-size: 20px;
+    font-weight: bold;
 }
 
 button {
