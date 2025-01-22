@@ -36,7 +36,6 @@ func index(res http.ResponseWriter) {
 
     data := mystruct.IndexTemplate {
         Buttons: buttons,
-        UseCamera: myconst.USE_CAMERA,
     }
 
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
@@ -59,8 +58,7 @@ func main() {
     mytpl.Template_init()
 
     if myconst.USE_CAMERA {
-        camera := mycamera.InitCamera()
-        defer camera.Close()
+        mycamera.InitCamera()
     }
 
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))

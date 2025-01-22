@@ -36,11 +36,6 @@ window.onpointerup = window.onpointercancel = (ev) => {
 
     pressed(document.getElementById(`radio_${radio_number}`), radio_number);
     delete holding_buttons[ev.pointerId];
-
-    /*if(Object.entries(holding_buttons).length == 0)
-    {
-        document.body.style.touchAction = "auto";
-    }*/
 }
 
 window.onload = () => {
@@ -87,9 +82,11 @@ window.onload = () => {
             if(!can_recive_frame) return;
             
             can_recive_frame = false;
-            const blob = new Blob([data], { type: 'video/h264' });
+            const blob = new Blob([data], { type: 'image/jpeg' });
             const img = new Image();
             img.onload = () => {
+                if(canvas.hidden) canvas.hidden = false;
+                
                 ctx.drawImage(img, 0, 0);
                 can_recive_frame = true;
                 URL.revokeObjectURL(img.src);
