@@ -9,6 +9,7 @@ import (
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
+	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
 
 	"radio_site/libs/myhelper"
@@ -48,8 +49,8 @@ func main() {
         log.Fatalln("MAX_NUMBER_OF_PINS cant be bigger than 63, nor smaller than 1")
     }
 
-    if myconst.USE_PARALLEL && !C.enable_perm() {
-        log.Fatalln("Failed to get access to port!")
+    if err := myparallel.CheckPerm(); err == myparallel.ErrPortAccess {
+        log.Fatalln(err)
     }
 
     // if file doesnt exists, create it with default value
