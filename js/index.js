@@ -64,7 +64,8 @@ window.onload = () => {
 
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");
-    const ctx = canvas.getContext("2d");
+    var ctx;
+    if(canvas) ctx = canvas.getContext("2d");
     
     var can_recive_frame = true;
 
