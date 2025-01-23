@@ -4,6 +4,13 @@ var socket;
 /** pointer_id: button_number */
 const holding_buttons = {};
 
+/** @type {HTMLUListElement} */
+var user_list;
+/** @type {HTMLSpanElement} */
+var user_count_span;
+/** @type {HTMLButtonElement[]} */
+var buttons;
+
 /**
  * @param {HTMLButtonElement} button 
  * @param {number} number 
@@ -14,6 +21,9 @@ function pressed(button, number)
     socket.send(number);
 }
 
+/**
+ * @param {string} button_status
+ */
 function get_button_class(button_status)
 {
     if(button_status == "0") return "off";
@@ -23,6 +33,72 @@ function get_button_class(button_status)
     throw new Error("no such character: " + button_status);
 }
 
+/**
+ * @param {string} data
+ */
+function get_users(data) {
+    const user_text = data.slice(1);
+    const users = user_text.split(",");
+    users.pop(); // remove last empty entry
+    return users
+}
+
+/**
+ * @param {string} data
+ */
+function users_change_event(data) {
+    const users = get_users(data);
+    user_count_span.innerText = users.length;
+    user_list.innerHTML = "";
+    for(var user of users)
+    {
+        const li = document.createElement("li");
+        li.innerText = user;
+        user_list.appendChild(li);
+    }
+}
+
+/**
+ * @param {string} data
+ */
+function holding_change_event(data) {
+    const users = get_users(data);
+    const user_button_pairs = [];
+
+    for(const user of users)
+    {
+        const tmp = user.split(";")
+        user_button_pairs[tmp[1]] = tmp[0]
+    }
+
+    for(const button of buttons)
+    {
+        for(const p of button.querySelectorAll("p"))
+        {
+            button.removeChild(p);
+        }
+
+        const user = user_button_pairs[button.getAttribute("pin_num")];
+        if(user !== undefined)
+        {
+            const p = document.createElement("p");
+            button.appendChild(p);
+            p.innerText = user;
+        }
+    }
+}
+
+/**
+ * @param {string} data
+ */
+function button_change_event(data) {
+    for(var i = 0; i < data.length; i++)
+    {
+        buttons[i].classList = get_button_class(data[i]);
+    }
+}
+
+// When page goes out of focus, depress all held button
 window.onblur = (e) => {
     for(var k in holding_buttons)
     {
@@ -39,14 +115,9 @@ window.onpointerup = window.onpointercancel = (ev) => {
 }
 
 window.onload = () => {
-    /** @type {HTMLUListElement} */
-    const user_list = document.getElementById("users");
-
-    /** @type {HTMLSpanElement} */
-    const user_count_span = document.getElementById("user_count");
-
-    /** @type {HTMLButtonElement[]} */
-    const buttons = document.querySelectorAll("#buttons button");
+    user_list = document.getElementById("users");
+    user_count_span = document.getElementById("user_count");
+    buttons = document.querySelectorAll("#buttons button");
 
     for(const button of buttons)
     {
@@ -64,6 +135,7 @@ window.onload = () => {
 
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");
+    /** @type {CanvasRenderingContext2D} */
     var ctx;
     if(canvas) ctx = canvas.getContext("2d");
     
@@ -111,48 +183,12 @@ window.onload = () => {
 
         if(data[0] == "u")
         {
-            const user_text = data.slice(1);
-            const users = user_text.split(",");
-            users.pop(); // remove last empty entry
-            user_count_span.innerText = users.length;
-            user_list.innerHTML = "";
-            for(var user of users)
-            {
-                const li = document.createElement("li");
-                li.innerText = user;
-                user_list.appendChild(li);
-            }
+            users_change_event(data);
             return;
         }
         else if(data[0] == "h")
         {
-            const user_text = data.slice(1);
-            const users = user_text.split(",");
-            users.pop(); // remove last empty entry
-            const user_button_pairs = [];
-
-            for(const user of users)
-            {
-                const tmp = user.split(";")
-                user_button_pairs[tmp[1]] = tmp[0]
-            }
-
-            for(const button of buttons)
-            {
-                for(const p of button.querySelectorAll("p"))
-                {
-                    button.removeChild(p);
-                }
-
-                const user = user_button_pairs[button.getAttribute("pin_num")];
-                if(user !== undefined)
-                {
-                    const p = document.createElement("p");
-                    button.appendChild(p);
-                    p.innerText = user;
-                }
-            }
-
+            holding_change_event(data);
             return;
         }
 
@@ -162,10 +198,7 @@ window.onload = () => {
             return;
         }
 
-        for(var i = 0; i < data.length; i++)
-        {
-            buttons[i].classList = get_button_class(data[i]);
-        }
+        button_change_event(data);
     };
 
     socket.onclose = (event) => {
