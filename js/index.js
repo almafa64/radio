@@ -169,6 +169,7 @@ window.onload = () => {
     };
 
     socket.onclose = (event) => {
-        console.log("WebSocket connection closed.");
+        alert("Connection closed. Reloading webpage.");
+        window.location.href = window.location.href;
     };
 }
