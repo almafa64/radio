@@ -50,7 +50,7 @@ function users_change_event(data) {
     const users = get_users(data);
     user_count_span.innerText = users.length;
     user_list.innerHTML = "";
-    for(var user of users)
+    for(const user of users)
     {
         const li = document.createElement("li");
         li.innerText = user;
@@ -98,9 +98,35 @@ function button_change_event(data) {
     }
 }
 
+function init_buttons() {
+    buttons = document.querySelectorAll("#buttons button");
+    for(const button of buttons)
+    {
+        if(button.getAttribute("toggle") != null)
+        {
+            button.onpointerdown = (e) => {
+                if(e.button != 0) return;
+    
+                const number = button.getAttribute("pin_num");
+                pressed(button, number);
+            }
+            continue;
+        }
+    
+        button.onpointerdown = (e) => {
+            if(e.button != 0) return;
+    
+            if(button.querySelector("p") !== null) return;
+            const number = button.getAttribute("pin_num");
+            pressed(button, number);
+            holding_buttons[e.pointerId] = number;
+        }
+    }
+}
+
 // When page goes out of focus, depress all held button
 window.onblur = (e) => {
-    for(var k in holding_buttons)
+    for(const k in holding_buttons)
     {
         window.onpointerup({pointerId: k})
     }
@@ -117,21 +143,8 @@ window.onpointerup = window.onpointercancel = (ev) => {
 window.onload = () => {
     user_list = document.getElementById("users");
     user_count_span = document.getElementById("user_count");
-    buttons = document.querySelectorAll("#buttons button");
 
-    for(const button of buttons)
-    {
-        if(button.getAttribute("push") == null) continue;
-
-        button.onpointerdown = (e) => {
-            if(e.button != 0) return;
-
-            const number = button.getAttribute("pin_num");
-            if(button.querySelector("p") !== null) return;
-            pressed(button, number);
-            holding_buttons[e.pointerId] = number;
-        }
-    }
+    init_buttons();
 
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");
