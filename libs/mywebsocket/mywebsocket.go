@@ -93,6 +93,7 @@ func addClient(client *mystruct.Client) {
 	defer ClientsLock.Unlock()
 	Clients[client] = struct{}{}
 	go startFrameSender(client)
+	go readMessages(client)
 	log.Printf("%s connected. Total clients: %d", client.Name, len(Clients))
 }
 
@@ -101,6 +102,8 @@ func removeClient(client *mystruct.Client) {
 	delete(Clients, client)
 	users := clientsToString()
 	ClientsLock.Unlock()
+
+	client.Conn.Close()
 
 	ButtonsHeld.Range(func(key, value any) bool {
 		if value != client { return true }
@@ -131,7 +134,6 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		log.Println("upgrade error:", err)
 		return
 	}
-	defer conn.Close()
 
 	name := req.Header.Get("X-User")
 	if name == "" {
@@ -154,8 +156,6 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 	addClient(client)
 	defer removeClient(client)
 
-	go readMessages(client)
-
 	// wait maximum readTimeout second for pong
 	conn.SetReadDeadline(time.Now().Add(myconst.READ_TIMEOUT))
 	conn.SetPongHandler(func(appData string) error {
@@ -172,13 +172,13 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 		case <-heartbeatTicker.C:
 			// send ping
 			if err := client.WriteToClient(websocket.PingMessage, nil); err != nil {
-				log.Println(client.Name, "ping failed, closing connection:", err)
+				log.Println(client.Name, "ping failed. Closing connection:", err)
 				return
 			}
 		case message, ok := <-client.Send:
 			if !ok {
 				// Channel closed, terminate connection
-				log.Printf("%s channel closed\n", client.Name)
+				log.Println(client.Name, "channel closed")
 				client.WriteToClient(websocket.TextMessage, []byte("closed"))
 				return
 			}
@@ -230,11 +230,11 @@ func readMessages(client *mystruct.Client) {
 
 		if !isToggleButton {
 			statuses = myfile.Read_pin_statuses()
+
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
-			if value != client { continue }
-			if loaded {
-				ButtonsHeld.Delete(pin)
-			}
+			if value != client { continue }       // if button is not held by requesting user, deny it
+			if loaded { ButtonsHeld.Delete(pin) } // if button already held by requesting user, release it
+
 			usersHolding := holdingClientsToString()
 			broadcast([]byte("h" + usersHolding))
 		} else {
