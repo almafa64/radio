@@ -158,11 +158,14 @@ func print_line_error(msg string, line_num int, line []string) {
 }
 
 func Check_file() {
+    first_run := false
+
     text, err := os.ReadFile(myconst.PIN_FILE_PATH)
     if os.IsNotExist(err) {
         pinFile, err = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR | os.O_CREATE, 0644)
         myerr.Check_err(err)
         text = []byte("button 1;-;T")
+        first_run = true
     } else {
         myerr.Check_err(err)
         pinFile, _ = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR, 0644)
@@ -238,4 +241,9 @@ func Check_file() {
     }
     myparallel.WritePort(statuses)
     WriteWholePinFileFD([]byte(out))
+
+    if first_run {
+        log.Println("Created pins.txt for first time, quiting for configuration.")
+        os.Exit(0)
+    }
 }
