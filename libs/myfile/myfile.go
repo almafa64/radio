@@ -1,6 +1,7 @@
 package myfile
 
 import (
+	"errors"
 	"io"
 	"log"
 	"radio_site/libs/myconst"
@@ -20,9 +21,11 @@ var (
 
 var pushButtons = make(map[int]struct{})
 
-func Write_pin_file(pin_statuses []byte) {
+func Write_pin_file(pin_statuses []byte) error {
     var data strings.Builder
+
     pin_names := Read_pin_names()
+    if pin_names == nil { return errors.New("read error") }
     pin_modes := Read_pin_modes()
 
     for i := range len(pin_names) {
@@ -34,18 +37,24 @@ func Write_pin_file(pin_statuses []byte) {
         data.WriteByte('\n')
     }
 
-    WriteWholePinFileFD([]byte(data.String()))
+    return WriteWholePinFileFD([]byte(data.String()))
 }
 
 func Read_file_lines() [][]string {
     data := ReadWholePinFileFD()
-    string_data := string(data)
+    if data == nil { return nil }
 
+    string_data := string(data)
     splitted_lines := strings.Split(string_data, "\n")
+
     lines := make([][]string, len(splitted_lines))
 
     for i, line := range splitted_lines{
         lines[i] = strings.Split(line, ";")
+    }
+
+    if len(lines)-1 != myconst.MAX_NUMBER_OF_PINS {
+        return nil
     }
 
     return lines[:len(lines)-1] // remove newline
@@ -53,6 +62,8 @@ func Read_file_lines() [][]string {
 
 func Read_pin_names() []string {
     lines := Read_file_lines()
+    if lines == nil { return nil }
+
     pin_names := make([]string, len(lines))
 
     for i, line := range lines {
@@ -64,6 +75,8 @@ func Read_pin_names() []string {
 
 func Read_pin_statuses() []byte {
     lines := Read_file_lines()
+    if lines == nil { return nil }
+
     pin_statuses := make([]byte, len(lines))
 
     for i, line := range lines {
@@ -96,13 +109,17 @@ func ReadPinFileFD(line int) []byte {
     defer pinFileLock.Unlock()
     if line == -1 {
         info, err := pinFile.Stat()
-        myerr.Check_err(err)
+        if err != nil {
+            log.Println(err)
+            return nil
+        }
         data := make([]byte, info.Size())
 
         pinFile.Seek(0, 0)
         _, err = pinFile.Read(data)
-        if err != io.EOF {
-            myerr.Check_err(err)
+        if err != io.EOF && err != nil {
+            log.Println(err)
+            return nil
         }
         return data
     }
@@ -115,22 +132,25 @@ func ReadWholePinFileFD() []byte {
     return ReadPinFileFD(-1)
 }
 
-func WritePinFileFD(data []byte, line int) {
+func WritePinFileFD(data []byte, line int) error {
     pinFileLock.Lock()
     defer pinFileLock.Unlock()
     if line == -1 {
         pinFile.Seek(0, 0)
-        _, err := pinFile.Write(data)
-        myerr.Check_err(err)
+        if _, err := pinFile.Write(data); err != nil {
+            log.Println(err)
+            return err
+        }
         pinFile.Sync()
-        return
+        return nil
     }
 
     log.Fatalf("Not implemented!")
+    return nil
 }
 
-func WriteWholePinFileFD(data []byte) {
-    WritePinFileFD(data, -1)
+func WriteWholePinFileFD(data []byte) error {
+    return WritePinFileFD(data, -1)
 }
 
 func print_line_error(msg string, line_num int, line []string) {
@@ -193,9 +213,11 @@ func Check_file() {
     linesLen := len(lines)
     if linesLen > myconst.MAX_NUMBER_OF_PINS {
         // remove not needed lines
+        log.Println("Removing", (linesLen - myconst.MAX_NUMBER_OF_PINS), "pin lines")
         lines = lines[:myconst.MAX_NUMBER_OF_PINS]
     } else if linesLen < myconst.MAX_NUMBER_OF_PINS {
         // add "button i" lines to fill needed lines
+        log.Println("Adding", (myconst.MAX_NUMBER_OF_PINS - linesLen), "pin lines")
         for i := linesLen; i < myconst.MAX_NUMBER_OF_PINS; i++ {
             lines = append(lines, []string{"button " + strconv.Itoa(i + 1), "-", "T"})
         }

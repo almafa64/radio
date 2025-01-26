@@ -204,6 +204,14 @@ window.onload = () => {
             holding_change_event(data);
             return;
         }
+        else if(data === "RE")
+        {
+            alert("Read error");
+        }
+        else if(data === "WE")
+        {
+            alert("Write error");
+        }
 
         if(buttons.length !== data.length)
         {

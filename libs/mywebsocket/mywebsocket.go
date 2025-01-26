@@ -2,7 +2,6 @@ package mywebsocket
 
 import (
 	"radio_site/libs/myconst"
-	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
 	"radio_site/libs/myparallel"
@@ -34,7 +33,7 @@ var upgrader = websocket.Upgrader{
 
 		u, err := url.Parse(r.Header["Origin"][0])
 		if err != nil {
-			myerr.CheckErrMsg("origin error: ", err)
+			log.Println("origin error: ", err)
 			return false
 		}
 
@@ -115,9 +114,14 @@ func removeClient(client *mystruct.Client) {
 	usersHolding := holdingClientsToString()
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
-	broadcast([]byte("h" + usersHolding))
 	broadcast([]byte("u" + users))
-	broadcast(applyHeldButtons(myfile.Read_pin_statuses()))
+	statuses := myfile.Read_pin_statuses()
+	if statuses == nil {
+		broadcast([]byte("RE"))
+		return
+	}
+	broadcast([]byte("h" + usersHolding))
+	broadcast(applyHeldButtons(statuses))
 }
 
 func broadcast(text []byte) {
@@ -196,7 +200,12 @@ func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	ClientsLock.Lock()
-	client.Send <- applyHeldButtons(myfile.Read_pin_statuses())
+	statuses := myfile.Read_pin_statuses()
+	if statuses == nil {
+		broadcast([]byte("RE"))
+		return
+	}
+	client.Send <- applyHeldButtons(statuses)
 	users := clientsToString()
 	ClientsLock.Unlock()
 
@@ -230,6 +239,10 @@ func readMessages(client *mystruct.Client) {
 
 		if !isToggleButton {
 			statuses = myfile.Read_pin_statuses()
+			if statuses == nil {
+				broadcast([]byte("RE"))
+				return
+			}
 
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
 			if value != client { continue }       // if button is not held by requesting user, deny it
@@ -239,6 +252,10 @@ func readMessages(client *mystruct.Client) {
 			broadcast([]byte("h" + usersHolding))
 		} else {
 			statuses = myhelper.Toggle_pin_status(pin)
+			if statuses == nil {
+				broadcast([]byte("WE"))
+				return
+			}
 		}
 
 		applyHeldButtons(statuses)

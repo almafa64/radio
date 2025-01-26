@@ -33,6 +33,10 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 
 func index(res http.ResponseWriter) {
     buttons := myhelper.Get_data()
+    if buttons == nil {
+        http.Error(res, "Failed to read pins file", 500)
+        return
+    }
 
     data := mystruct.IndexTemplate {
         Buttons: buttons,
