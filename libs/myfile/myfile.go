@@ -23,12 +23,12 @@ var (
 
 var pushButtons = make(map[int]struct{})
 
-func Write_pin_file(pin_statuses []byte) error {
+func WritePinFile(pin_statuses []byte) error {
     var data strings.Builder
 
-    pin_names := Read_pin_names()
+    pin_names := ReadPinNames()
     if pin_names == nil { return ErrRead }
-    pin_modes := Read_pin_modes()
+    pin_modes := ReadPinModes()
 
     for i := range len(pin_names) {
         data.WriteString(pin_names[i])
@@ -42,7 +42,7 @@ func Write_pin_file(pin_statuses []byte) error {
     return WriteWholePinFileFD([]byte(data.String()))
 }
 
-func Read_file_lines() [][]string {
+func ReadFileLines() [][]string {
     data := ReadWholePinFileFD()
     if data == nil { return nil }
 
@@ -62,8 +62,8 @@ func Read_file_lines() [][]string {
     return lines[:len(lines)-1] // remove newline
 }
 
-func Read_pin_names() []string {
-    lines := Read_file_lines()
+func ReadPinNames() []string {
+    lines := ReadFileLines()
     if lines == nil { return nil }
 
     pin_names := make([]string, len(lines))
@@ -75,8 +75,8 @@ func Read_pin_names() []string {
     return pin_names
 }
 
-func Read_pin_statuses() []byte {
-    lines := Read_file_lines()
+func ReadPinStatuses() []byte {
+    lines := ReadFileLines()
     if lines == nil { return nil }
 
     pin_statuses := make([]byte, len(lines))
@@ -88,7 +88,7 @@ func Read_pin_statuses() []byte {
     return pin_statuses
 }
 
-func Read_pin_modes() []byte {
+func ReadPinModes() []byte {
     pin_modes := make([]byte, myconst.MAX_NUMBER_OF_PINS)
 
     for i := range myconst.MAX_NUMBER_OF_PINS {
@@ -155,21 +155,21 @@ func WriteWholePinFileFD(data []byte) error {
     return WritePinFileFD(data, -1)
 }
 
-func print_line_error(msg string, line_num int, line []string) {
+func printLineError(msg string, line_num int, line []string) {
     log.Println(msg + " in line #" + strconv.Itoa(line_num) + " '" + strings.Join(line, ";") + "'")
 }
 
-func Check_file() {
+func CheckFile() {
     first_run := false
 
     text, err := os.ReadFile(myconst.PIN_FILE_PATH)
     if os.IsNotExist(err) {
         pinFile, err = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR | os.O_CREATE, 0644)
-        myerr.Check_err(err)
+        myerr.CheckErr(err)
         text = []byte("button 1;-;T")
         first_run = true
     } else {
-        myerr.Check_err(err)
+        myerr.CheckErr(err)
         pinFile, _ = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR, 0644)
     }
 
@@ -179,7 +179,7 @@ func Check_file() {
         WriteWholePinFileFD(text)
     }
 
-    lines := Read_file_lines()
+    lines := ReadFileLines()
     for i, line := range lines {
         switch len(line) {
             case 0:
@@ -190,17 +190,17 @@ func Check_file() {
                 line = []string{line[0], line[1], "T"}
             case 3:
                 if line[2] != "T" && line[2] != "P" {
-                    print_line_error("Undefined character '" + line[2] + "'", i, lines[i])
+                    printLineError("Undefined character '" + line[2] + "'", i, lines[i])
                     line[2] = "T"
                 }
             default:
-                print_line_error("\nToo much part", i, lines[i])
+                printLineError("\nToo much part", i, lines[i])
                 os.Exit(0)
                 log.Fatal()
         }
 
         if line[1] != "-" && line[1] != "0" && line[1] != "1" {
-            print_line_error("Undefined character '" + line[1] + "'", i, lines[i])
+            printLineError("Undefined character '" + line[1] + "'", i, lines[i])
             line[1] = "-"
         }
 
