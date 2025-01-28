@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+var ErrRead = errors.New("read error")
+
 var (
     pinFile *os.File
     pinFileLock sync.Mutex
@@ -25,7 +27,7 @@ func Write_pin_file(pin_statuses []byte) error {
     var data strings.Builder
 
     pin_names := Read_pin_names()
-    if pin_names == nil { return errors.New("read error") }
+    if pin_names == nil { return ErrRead }
     pin_modes := Read_pin_modes()
 
     for i := range len(pin_names) {

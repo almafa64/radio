@@ -18,6 +18,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var (
+	socketReadError = []byte("RE")
+	socketWriteError = []byte("WE")
+	socketClosed = []byte("closed")
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
@@ -117,7 +123,7 @@ func removeClient(client *mystruct.Client) {
 	broadcast([]byte("u" + users))
 	statuses := myfile.Read_pin_statuses()
 	if statuses == nil {
-		broadcast([]byte("RE"))
+		broadcast(socketReadError)
 		return
 	}
 	broadcast([]byte("h" + usersHolding))
@@ -183,7 +189,7 @@ func Ws_handler(res http.ResponseWriter, req *http.Request) {
 			if !ok {
 				// Channel closed, terminate connection
 				log.Println(client.Name, "channel closed")
-				client.WriteToClient(websocket.TextMessage, []byte("closed"))
+				client.WriteToClient(websocket.TextMessage, socketClosed)
 				return
 			}
 
@@ -202,7 +208,7 @@ func readMessages(client *mystruct.Client) {
 	ClientsLock.Lock()
 	statuses := myfile.Read_pin_statuses()
 	if statuses == nil {
-		broadcast([]byte("RE"))
+		broadcast(socketReadError)
 		return
 	}
 	client.Send <- applyHeldButtons(statuses)
@@ -240,7 +246,7 @@ func readMessages(client *mystruct.Client) {
 		if !isToggleButton {
 			statuses = myfile.Read_pin_statuses()
 			if statuses == nil {
-				broadcast([]byte("RE"))
+				broadcast(socketReadError)
 				return
 			}
 
@@ -253,7 +259,7 @@ func readMessages(client *mystruct.Client) {
 		} else {
 			statuses = myhelper.Toggle_pin_status(pin)
 			if statuses == nil {
-				broadcast([]byte("WE"))
+				broadcast(socketWriteError)
 				return
 			}
 		}
