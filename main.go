@@ -20,7 +20,7 @@ import (
 	"net/http"
 )
 
-func page_handler(res http.ResponseWriter, req *http.Request) {
+func pageHandler(res http.ResponseWriter, req *http.Request) {
     path := req.URL.Path
 
     if path == "/" {
@@ -32,7 +32,7 @@ func page_handler(res http.ResponseWriter, req *http.Request) {
 }
 
 func index(res http.ResponseWriter) {
-    buttons := myhelper.Get_data()
+    buttons := myhelper.GetData()
     if buttons == nil {
         http.Error(res, "Failed to read pins file", 500)
         return
@@ -44,7 +44,7 @@ func index(res http.ResponseWriter) {
 
     err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
 
-    myerr.Check_err(err)
+    myerr.CheckErr(err)
 }
     
 func main() {
@@ -57,9 +57,9 @@ func main() {
     }
 
     // if file doesnt exists, create it with default value
-    myfile.Check_file()
+    myfile.CheckFile()
 
-    mytpl.Template_init()
+    mytpl.TemplateInit()
 
     if myconst.USE_CAMERA {
         mycamera.InitCamera()
@@ -68,8 +68,8 @@ func main() {
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
     http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))
 
-    http.HandleFunc("/", page_handler)
-    http.HandleFunc("/radio_ws", mywebsocket.Ws_handler)
+    http.HandleFunc("/", pageHandler)
+    http.HandleFunc("/radio_ws", mywebsocket.WsHandler)
 
     http.ListenAndServe(":"+myconst.PORT, nil)
 }

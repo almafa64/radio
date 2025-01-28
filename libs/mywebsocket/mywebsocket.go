@@ -121,7 +121,7 @@ func removeClient(client *mystruct.Client) {
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
 	broadcast([]byte("u" + users))
-	statuses := myfile.Read_pin_statuses()
+	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
 		broadcast(socketReadError)
 		return
@@ -138,7 +138,7 @@ func broadcast(text []byte) {
 	ClientsLock.Unlock()
 }
 
-func Ws_handler(res http.ResponseWriter, req *http.Request) {
+func WsHandler(res http.ResponseWriter, req *http.Request) {
 	conn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
 		log.Println("upgrade error:", err)
@@ -206,7 +206,7 @@ func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	ClientsLock.Lock()
-	statuses := myfile.Read_pin_statuses()
+	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
 		broadcast(socketReadError)
 		return
@@ -238,13 +238,13 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		modes := myfile.Read_pin_modes()
+		modes := myfile.ReadPinModes()
 		isToggleButton := modes[pin] == 'T'
 
 		var statuses []byte
 
 		if !isToggleButton {
-			statuses = myfile.Read_pin_statuses()
+			statuses = myfile.ReadPinStatuses()
 			if statuses == nil {
 				broadcast(socketReadError)
 				return
@@ -257,7 +257,7 @@ func readMessages(client *mystruct.Client) {
 			usersHolding := holdingClientsToString()
 			broadcast([]byte("h" + usersHolding))
 		} else {
-			statuses = myhelper.Toggle_pin_status(pin)
+			statuses = myhelper.TogglePinStatus(pin)
 			if statuses == nil {
 				broadcast(socketWriteError)
 				return
