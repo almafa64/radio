@@ -18,6 +18,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	holdingCommandPrefix = "h"
+	userListCommandPrefix = "u"
+)
+
 var (
 	socketReadError = []byte("RE")
 	socketWriteError = []byte("WE")
@@ -120,13 +125,13 @@ func removeClient(client *mystruct.Client) {
 	usersHolding := holdingClientsToString()
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
-	broadcast([]byte("u" + users))
+	broadcast([]byte(userListCommandPrefix + users))
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
 		broadcast(socketReadError)
 		return
 	}
-	broadcast([]byte("h" + usersHolding))
+	broadcast([]byte(holdingCommandPrefix + usersHolding))
 	broadcast(applyHeldButtons(statuses))
 }
 
@@ -216,8 +221,8 @@ func readMessages(client *mystruct.Client) {
 	ClientsLock.Unlock()
 
 	usersHolding := holdingClientsToString()
-	broadcast([]byte("h" + usersHolding))
-	broadcast([]byte("u" + users))
+	broadcast([]byte(holdingCommandPrefix + usersHolding))
+	broadcast([]byte(userListCommandPrefix + users))
 
 	for {
 		msgType, message, err := client.Conn.ReadMessage()
@@ -255,7 +260,7 @@ func readMessages(client *mystruct.Client) {
 			if loaded { ButtonsHeld.Delete(pin) } // if button already held by requesting user, release it
 
 			usersHolding := holdingClientsToString()
-			broadcast([]byte("h" + usersHolding))
+			broadcast([]byte(holdingCommandPrefix + usersHolding))
 		} else {
 			statuses = myhelper.TogglePinStatus(pin)
 			if statuses == nil {
