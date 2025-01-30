@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"radio_site/libs/myconst"
+	"radio_site/libs/mystruct"
 	"radio_site/libs/mywebsocket"
 	"time"
 
@@ -12,11 +13,10 @@ import (
 
 func sendFrames(frames <-chan []byte) {
 	for frame := range frames {
-		mywebsocket.ClientsLock.Lock()
-		for client := range mywebsocket.Clients {
-			client.FrameQueue <- frame
-		}
-		mywebsocket.ClientsLock.Unlock()
+		mywebsocket.Clients.Range(func(key, value any) bool {
+			key.(*mystruct.Client).FrameQueue <- frame
+			return true
+		})
 	}
 }
 

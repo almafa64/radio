@@ -7,6 +7,7 @@ import (
 	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
 	"strings"
+	"sync/atomic"
 
 	"log"
 	"net/http"
@@ -53,18 +54,19 @@ var upgrader = websocket.Upgrader{
 }
 
 var (
-	Clients = make(map[*mystruct.Client]struct{}) // "hashset"
-	ClientsLock sync.Mutex
+	Clients sync.Map
+	ClientCount atomic.Int64 // sync.Map doesnt have any len function
 )
 
 var ButtonsHeld sync.Map
 
 func clientsToString() string {
 	var builder strings.Builder
-	for client := range Clients {
-		builder.WriteString(client.Name)
+	Clients.Range(func(key, value any) bool {
+		builder.WriteString(key.(*mystruct.Client).Name)
 		builder.WriteByte(',')
-	}
+		return true
+	})
 	return builder.String()
 }
 
@@ -99,19 +101,17 @@ func startFrameSender(client *mystruct.Client) {
 }
 
 func addClient(client *mystruct.Client) {
-	ClientsLock.Lock()
-	defer ClientsLock.Unlock()
-	Clients[client] = struct{}{}
+	Clients.Store(client, struct{}{})
+	ClientCount.Add(1)
 	go startFrameSender(client)
 	go readMessages(client)
-	log.Printf("%s connected. Total clients: %d", client.Name, len(Clients))
+	log.Printf("%s connected. Total clients: %d", client.Name, ClientCount.Load())
 }
 
 func removeClient(client *mystruct.Client) {
-	ClientsLock.Lock()
-	delete(Clients, client)
+	Clients.Delete(client)
 	users := clientsToString()
-	ClientsLock.Unlock()
+	ClientCount.Add(-1)
 
 	client.Conn.Close()
 
@@ -124,7 +124,7 @@ func removeClient(client *mystruct.Client) {
 
 	usersHolding := holdingClientsToString()
 
-	log.Printf("%s disconnected. Total clients: %d", client.Name, len(Clients))
+	log.Printf("%s disconnected. Total clients: %d", client.Name, ClientCount.Load())
 	broadcast([]byte(userListCommandPrefix + users))
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
@@ -136,11 +136,10 @@ func removeClient(client *mystruct.Client) {
 }
 
 func broadcast(text []byte) {
-	ClientsLock.Lock()
-	for c := range Clients {
-		c.Send <- text
-	}
-	ClientsLock.Unlock()
+	Clients.Range(func(key, value any) bool {
+		key.(*mystruct.Client).Send <- text
+		return true
+	})
 }
 
 func WsHandler(res http.ResponseWriter, req *http.Request) {
@@ -210,7 +209,6 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	ClientsLock.Lock()
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
 		broadcast(socketReadError)
@@ -218,7 +216,6 @@ func readMessages(client *mystruct.Client) {
 	}
 	client.Send <- applyHeldButtons(statuses)
 	users := clientsToString()
-	ClientsLock.Unlock()
 
 	usersHolding := holdingClientsToString()
 	broadcast([]byte(holdingCommandPrefix + usersHolding))
