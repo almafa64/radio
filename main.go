@@ -1,9 +1,5 @@
 package main
 
-// #cgo LDFLAGS: -lm
-// #include "c_main.h"
-import "C"
-
 import (
 	"radio_site/libs/mycamera"
 	"radio_site/libs/myconst"
