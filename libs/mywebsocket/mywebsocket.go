@@ -92,7 +92,6 @@ func applyHeldButtons(statuses []byte) []byte {
 }
 
 func startFrameSender(client *mystruct.Client) {
-	defer close(client.FrameQueue)
 	for frame := range client.FrameQueue {
 		if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
 			return
@@ -113,6 +112,7 @@ func removeClient(client *mystruct.Client) {
 	users := clientsToString()
 	ClientCount.Add(-1)
 
+	defer close(client.FrameQueue)
 	client.Conn.Close()
 
 	ButtonsHeld.Range(func(key, value any) bool {
