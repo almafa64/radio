@@ -23,7 +23,7 @@ func (client *Client) WriteToClient(messageType int, data []byte) error {
 type Button struct {
     Name      string
     Num       int
-    IsToogle  bool
+    IsToggle  bool
 }
 
 type IndexTemplate struct {
