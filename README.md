@@ -1,25 +1,25 @@
 # Remote Controlled Radio Station (RCRS)
 
-Made for our amateur radio club to control the equipments remotely and see if everything works as it supposed to.
+Made for our amateur radio club station to control and monitor the equipment remotely and see if everything works as intended.
 
 ## Configuration
-Every configuration can be found in libs/myconst/myconst.go
+All configuration options can be found in libs/myconst/myconst.go
 
 ## Running
 Just run `go run .` in the folder where you found `README.md`.<br>
-The first time it generates the `pins.txt` with the help of `myconst.MAX_NUMBER_OF_PINS` then quits to let you configure the file.<br>
+The first time it generates `pins.txt` based on `myconst.MAX_NUMBER_OF_PINS` then quits to let you configure the file.<br>
 After that you can restart it and it'll start on port `8080` (if you haven't changed it)
 
-If you want port support you'll need root privileges, so run it with sudo.
+If you want parallel port support you'll need to run with root privileges.
 
 You can connect a camera anytime you want (before or even after starting the server), but don't disconnect it because the server will crash (can't do anything about it sadly).
 
-There is a nginx config which is needed if you want to use the page outside of localhost. Listens on port `80`, proxies to `8080`<br>
+There is an nginx config which is needed if you want to use the page outside of localhost. Listens on port `80`, proxies to `8080`<br>
 It uses these paths:
 - `/`: Main page (and only usable page)
 - `/radio_ws`: websocket connection
 
-## Techinal informations
+## Technical information
 
 ### Abbreviations
 #### Websocket communication:
@@ -31,7 +31,7 @@ It uses these paths:
 - `T`: toggle button
 - `P`: push button
 
-### Syntaxts
+### Syntax description
 #### Pin file
 ```
 <name of button>;<status: 0|1|->;<mode: T|P>
@@ -39,7 +39,7 @@ It uses these paths:
 ```
 
 #### Websocket
-First character detones the command 
+First character denotes the command
 ##### User list update
 ```
 u[name of 1. user],...

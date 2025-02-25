@@ -42,10 +42,10 @@ func index(res http.ResponseWriter) {
 
     myerr.CheckErr(err)
 }
-    
+
 func main() {
     if myconst.MAX_NUMBER_OF_PINS > 63 || myconst.MAX_NUMBER_OF_PINS < 1 {
-        log.Fatalln("MAX_NUMBER_OF_PINS cant be bigger than 63, nor smaller than 1")
+        log.Fatalln("MAX_NUMBER_OF_PINS cannot be bigger than 63, nor smaller than 1")
     }
 
     if err := myparallel.CheckPerm(); err == myparallel.ErrPortAccess {

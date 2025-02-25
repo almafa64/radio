@@ -12,8 +12,8 @@ var user_count_span;
 var buttons;
 
 /**
- * @param {HTMLButtonElement} button 
- * @param {number} number 
+ * @param {HTMLButtonElement} button
+ * @param {number} number
  */
 function pressed(button, number)
 {
@@ -106,16 +106,16 @@ function init_buttons() {
         {
             button.onpointerdown = (e) => {
                 if(e.button != 0) return;
-    
+
                 const number = button.getAttribute("pin_num");
                 pressed(button, number);
             }
             continue;
         }
-    
+
         button.onpointerdown = (e) => {
             if(e.button != 0) return;
-    
+
             if(button.querySelector("p") !== null) return;
             const number = button.getAttribute("pin_num");
             pressed(button, number);
@@ -151,7 +151,7 @@ window.onload = () => {
     /** @type {CanvasRenderingContext2D} */
     var ctx;
     if(canvas) ctx = canvas.getContext("2d");
-    
+
     var can_recive_frame = true;
 
     socket = new WebSocket("ws://" + location.host + "/radio_ws");
@@ -166,13 +166,13 @@ window.onload = () => {
 
         if(data instanceof ArrayBuffer) {
             if(!can_recive_frame) return;
-            
+
             can_recive_frame = false;
             const blob = new Blob([data], { type: 'image/jpeg' });
             const img = new Image();
             img.onload = () => {
                 if(canvas.hidden) canvas.hidden = false;
-                
+
                 ctx.drawImage(img, 0, 0);
                 can_recive_frame = true;
                 URL.revokeObjectURL(img.src);
@@ -187,7 +187,7 @@ window.onload = () => {
         }
 
         console.log("Message from server:", data);
-        
+
         if(data === "closed")
         {
             alert("websocket closed")

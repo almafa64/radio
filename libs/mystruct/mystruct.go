@@ -21,9 +21,9 @@ func (client *Client) WriteToClient(messageType int, data []byte) error {
 }
 
 type Button struct {
-    Name      string
-    Num       int
-    IsToogle  bool
+    Name     string
+    Num      int
+    Toggled  bool
 }
 
 type IndexTemplate struct {
