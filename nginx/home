@@ -12,13 +12,14 @@ server {
 	listen 80;
 
 	auth_basic "Restriced Access";
-	auth_basic_user_file .radio_htpasswd;
+	auth_basic_user_file .htpasswd;
 
 	location ~ /\. {
 		deny all;
 	}
 
 	location / {
+		add_header Strict-Transport-Security "max-age=0;";
 		proxy_set_header Host $host;
 		proxy_set_header X-Real-IP $remote_addr;
 		proxy_pass http://radio_server;
@@ -31,6 +32,7 @@ server {
 		proxy_pass http://radio_server/radio_ws;
 		roxy_redirect off;
 		proxy_http_version 1.1;
+		proxy_read_timeout 120s;
 		proxy_set_header Upgrade $http_upgrade;
 		proxy_set_header X-Real-IP $remote_addr;
 		proxy_set_header Connection $connection_upgrade;
