@@ -8,14 +8,13 @@
         <script src="/js/index.js"></script>
     </head>
     <body>
-        <div id="info-container">
-            <div id="user-container">
-                <p id="user-header">User count: <span id="user_count"></span></p>
-                <ul id="users"></ul>
-            </div>
 
-            <canvas id="video" width="1280" height="720" hidden></canvas>
+        <div id="user-container">
+            <button onclick="users_popup()">Users (count: <span id="user_count"></span>)</button>
+            <ul id="users" hidden></ul>
         </div>
+
+        <canvas id="video" hidden></canvas>
 
         <div id="buttons">
             {{ range .Buttons }}

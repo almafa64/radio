@@ -58,6 +58,14 @@ function users_change_event(data) {
     }
 }
 
+function users_popup() {
+    if(user_list.hidden) {
+        user_list.hidden = false;
+        return;
+    }
+    user_list.hidden = true;
+}
+
 /**
  * @param {string} data
  */
@@ -171,7 +179,12 @@ window.onload = () => {
             const blob = new Blob([data], { type: 'image/jpeg' });
             const img = new Image();
             img.onload = () => {
-                if(canvas.hidden) canvas.hidden = false;
+                if(canvas.hidden)
+                {
+                    canvas.hidden = false;
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
                 
                 ctx.drawImage(img, 0, 0);
                 can_recive_frame = true;
