@@ -59,11 +59,11 @@ body {
     background-color: var(--on-color);
 }
 
-.on {
+#buttons .on {
     border-color: var(--on-color);
 }
 
-.off {
+#buttons .off {
     border-color: var(--off-color);
 }
 
