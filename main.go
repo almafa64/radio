@@ -10,9 +10,7 @@ import (
 	"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myparallel"
-	"radio_site/libs/mystruct"
 
-	"radio_site/libs/myhelper"
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
 
@@ -32,17 +30,7 @@ func pageHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func index(res http.ResponseWriter) {
-    buttons := myhelper.GetData()
-    if buttons == nil {
-        http.Error(res, "Failed to read pins file", 500)
-        return
-    }
-
-    data := mystruct.IndexTemplate {
-        Buttons: buttons,
-    }
-
-    err := mytpl.Tpl.ExecuteTemplate(res, "index.html", data)
+    err := mytpl.Tpl.ExecuteTemplate(res, "index.html", nil)
 
     myerr.CheckErr(err)
 }

@@ -36,18 +36,18 @@ function get_button_class(button_status)
 /**
  * @param {string} data
  */
-function get_users(data) {
-    const user_text = data.slice(1);
-    const users = user_text.split(",");
-    users.pop(); // remove last empty entry
-    return users
+function get_list_from_string(data) {
+    const text = data.slice(1);
+    const values = text.split(",");
+    values.pop(); // remove last empty entry
+    return values
 }
 
 /**
  * @param {string} data
  */
 function users_change_event(data) {
-    const users = get_users(data);
+    const users = get_list_from_string(data);
     user_count_span.innerText = users.length;
     user_list.innerHTML = "";
     for(const user of users)
@@ -56,6 +56,21 @@ function users_change_event(data) {
         li.innerText = user;
         user_list.appendChild(li);
     }
+}
+
+/**
+ * @param {string} data name;number;type(0: push, 1: toggle),...
+ */
+function buttons_change_event(data) {
+    const buttons = get_list_from_string(data);
+    const button_holder = document.getElementById("buttons");
+
+    for(const button of buttons) {
+        const button_data = button.split(";")
+        button_holder.appendChild(create_button(button_data[0], button_data[1], button_data[2] == "1"));
+    }
+
+    init_buttons();
 }
 
 function users_popup() {
@@ -70,7 +85,7 @@ function users_popup() {
  * @param {string} data
  */
 function holding_change_event(data) {
-    const users = get_users(data);
+    const users = get_list_from_string(data);
     const user_button_pairs = [];
 
     for(const user of users)
@@ -99,7 +114,7 @@ function holding_change_event(data) {
 /**
  * @param {string} data
  */
-function button_change_event(data) {
+function pin_status_change_event(data) {
     for(var i = 0; i < data.length; i++)
     {
         buttons[i].classList = get_button_class(data[i]);
@@ -108,6 +123,7 @@ function button_change_event(data) {
 
 function init_buttons() {
     buttons = document.querySelectorAll("#buttons button");
+
     for(const button of buttons)
     {
         if(button.getAttribute("toggle") != null)
@@ -132,6 +148,24 @@ function init_buttons() {
     }
 }
 
+/**
+ * @param {string} name 
+ * @param {number} num 
+ * @param {boolean|number} isToggle 
+ * @returns {HTMLButtonElement}
+ */
+function create_button(name, num, isToggle) {
+    const button = document.createElement("button");
+    button.setAttribute("pin_num", num);
+    if(isToggle) 
+        button.setAttribute("toggle", "");
+    else
+        button.setAttribute("push", "");
+    button.innerText = name;
+    button.id = `radio_${num}`;
+    return button;
+}
+
 // When page goes out of focus, depress all held button
 window.onblur = (e) => {
     for(const k in holding_buttons)
@@ -151,8 +185,6 @@ window.onpointerup = window.onpointercancel = (ev) => {
 window.onload = () => {
     user_list = document.getElementById("users");
     user_count_span = document.getElementById("user_count");
-
-    init_buttons();
 
     /** @type {HTMLCanvasElement} */
     const canvas = document.getElementById("video");
@@ -217,6 +249,11 @@ window.onload = () => {
             holding_change_event(data);
             return;
         }
+        else if(data[0] == "b")
+        {
+            buttons_change_event(data);
+            return;
+        }
         else if(data === "RE")
         {
             alert("Read error");
@@ -232,7 +269,7 @@ window.onload = () => {
             return;
         }
 
-        button_change_event(data);
+        pin_status_change_event(data);
     };
 
     socket.onclose = (event) => {

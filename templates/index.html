@@ -16,16 +16,6 @@
 
         <canvas id="video" hidden></canvas>
 
-        <div id="buttons">
-            {{ range .Buttons }}
-            <div class="button_container">
-                {{ if .IsToggle }}
-                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" toggle>{{ .Name }}</button>
-                {{ else }}
-                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" push>{{ .Name }}</button>
-                {{ end }}
-            </div>
-            {{ end }}
-        </div>
+        <div id="buttons"></div>
     </body>
 </html>

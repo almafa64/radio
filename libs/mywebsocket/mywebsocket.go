@@ -22,6 +22,7 @@ import (
 const (
 	holdingCommandPrefix = "h"
 	userListCommandPrefix = "u"
+	buttonListCommandPrefix = "b"
 )
 
 var (
@@ -79,6 +80,19 @@ func holdingClientsToString() string {
 		builder.WriteByte(',')
 		return true
 	})
+	return builder.String()
+}
+
+func buttonsToString() string {
+	var builder strings.Builder
+	for _, button := range myhelper.GetData() {
+		builder.WriteString(button.Name);
+		builder.WriteByte(';')
+		builder.WriteString(strconv.Itoa(button.Num));
+		builder.WriteByte(';')
+		builder.WriteString(strconv.Itoa(myhelper.BoolToInt(button.IsToggle)));
+		builder.WriteByte(',')
+	}
 	return builder.String()
 }
 
@@ -209,14 +223,17 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
+	buttons := buttonsToString()
+	client.Send <- []byte(buttonListCommandPrefix + buttons)
+
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
 		broadcast(socketReadError)
 		return
 	}
 	client.Send <- applyHeldButtons(statuses)
-	users := clientsToString()
 
+	users := clientsToString()
 	usersHolding := holdingClientsToString()
 	broadcast([]byte(holdingCommandPrefix + usersHolding))
 	broadcast([]byte(userListCommandPrefix + users))
