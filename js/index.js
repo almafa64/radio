@@ -1,3 +1,7 @@
+const holding_command = "h";
+const user_list_command = "u";
+const button_list_command = "b";
+
 /** @type {WebSocket} */
 var socket;
 
@@ -21,6 +25,14 @@ function pressed(button, number)
     socket.send(number);
 }
 
+function users_popup() {
+    if(user_list.hidden) {
+        user_list.hidden = false;
+        return;
+    }
+    user_list.hidden = true;
+}
+
 /**
  * @param {string} button_status
  */
@@ -33,21 +45,22 @@ function get_button_class(button_status)
     throw new Error("no such character: " + button_status);
 }
 
-/**
- * @param {string} data
- */
-function get_list_from_string(data) {
-    const text = data.slice(1);
-    const values = text.split(",");
-    values.pop(); // remove last empty entry
-    return values
-}
+// -------- Events --------
 
 /**
  * @param {string} data
  */
-function users_change_event(data) {
-    const users = get_list_from_string(data);
+function parse_data(data) {
+    const text = data.slice(1);
+    const values = text.split(",");
+    if(values[values.length - 1] == '') values.pop(); // remove last empty entry
+    return values
+}
+
+/**
+ * @param {string[]} users
+ */
+function users_change_event(users) {
     user_count_span.innerText = users.length;
     user_list.innerHTML = "";
     for(const user of users)
@@ -59,11 +72,12 @@ function users_change_event(data) {
 }
 
 /**
- * @param {string} data name;number;type(0: push, 1: toggle),...
+ * @param {string[]} buttons name;number;type(0: push, 1: toggle),...
  */
-function buttons_change_event(data) {
-    const buttons = get_list_from_string(data);
+function buttons_change_event(buttons) {
     const button_holder = document.getElementById("buttons");
+
+    button_holder.innerHTML = "";
 
     for(const button of buttons) {
         const button_data = button.split(";")
@@ -73,19 +87,10 @@ function buttons_change_event(data) {
     init_buttons();
 }
 
-function users_popup() {
-    if(user_list.hidden) {
-        user_list.hidden = false;
-        return;
-    }
-    user_list.hidden = true;
-}
-
 /**
- * @param {string} data
+ * @param {string[]} users
  */
-function holding_change_event(data) {
-    const users = get_list_from_string(data);
+function holding_change_event(users) {
     const user_button_pairs = [];
 
     for(const user of users)
@@ -120,6 +125,8 @@ function pin_status_change_event(data) {
         buttons[i].classList = get_button_class(data[i]);
     }
 }
+
+// -------- Main part --------
 
 function init_buttons() {
     buttons = document.querySelectorAll("#buttons button");
@@ -233,34 +240,31 @@ window.onload = () => {
 
         console.log("Message from server:", data);
         
-        if(data === "closed")
-        {
-            alert("websocket closed")
-            return;
+        switch (data) {
+            case "closed":
+                alert("websocket closed")
+                return;
+            case "RE":
+                alert("Read error");
+                return;
+            case "WE":
+                alert("Write error");
+                return;
         }
 
-        if(data[0] == "u")
-        {
-            users_change_event(data);
-            return;
-        }
-        else if(data[0] == "h")
-        {
-            holding_change_event(data);
-            return;
-        }
-        else if(data[0] == "b")
-        {
-            buttons_change_event(data);
-            return;
-        }
-        else if(data === "RE")
-        {
-            alert("Read error");
-        }
-        else if(data === "WE")
-        {
-            alert("Write error");
+        const command = data[0];
+        const args = parse_data(data);
+
+        switch (command) {
+            case user_list_command:
+                users_change_event(args);
+                return;
+            case holding_command:
+                holding_change_event(args);
+                return;
+            case button_list_command:
+                buttons_change_event(args);
+                return;
         }
 
         if(buttons.length !== data.length)
