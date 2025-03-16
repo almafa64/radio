@@ -3,12 +3,16 @@ package mycamera
 import (
 	"context"
 	"log"
+	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
 	"radio_site/libs/mystruct"
 	"radio_site/libs/mywebsocket"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/vladimirvivien/go4vl/device"
+	"github.com/vladimirvivien/go4vl/v4l2"
 )
 
 func sendFrames(frames <-chan []byte) {
@@ -21,15 +25,40 @@ func sendFrames(frames <-chan []byte) {
 }
 
 // try connecting camera every 5 seconds
-func tryConnectCamera() {
-	var camera *device.Device
-	var err error
+func tryConnectCamera(config myconfig.Camera) {
 	had_err := false
 
+	resolution := strings.Split(config.Resolution, "x");
+	var format uint32
+	switch config.Format {
+	case "mjpeg":
+		format = v4l2.PixelFmtMJPEG
+
+	default:
+		log.Fatalf("[camera] Unsupported image format: %s", config.Format)
+	};
+
+	width, err := strconv.ParseInt(resolution[0], 10, 32)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	height, err := strconv.ParseInt(resolution[1], 10, 32)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	pix_fmt := v4l2.PixFormat{
+		PixelFormat: format,
+		Width: uint32(width),
+		Height: uint32(height),
+	}
+
+	var camera *device.Device
 	for {
 		camera, err = device.Open(
-			myconst.CAMERA_PATH,
-			device.WithPixFormat(myconst.CAMERA_FORMAT),
+			config.Device,
+			device.WithPixFormat(pix_fmt),
+			device.WithFPS(config.Fps),
 		)
 
 		if err == nil {
@@ -60,5 +89,8 @@ func tryConnectCamera() {
 }
 
 func InitCamera() {
-	go tryConnectCamera()
+	if len(myconfig.Get().Camera) == 0 {
+		return
+	}
+	go tryConnectCamera(myconfig.Get().Camera[0])
 }
