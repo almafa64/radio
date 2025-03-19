@@ -23,6 +23,9 @@ const (
 	holdingCommandPrefix = "h"
 	userListCommandPrefix = "u"
 	buttonListCommandPrefix = "b"
+	editorCommandPrefix = "e"
+
+	editorExitMsg = "null"
 )
 
 var (
@@ -57,6 +60,7 @@ var upgrader = websocket.Upgrader{
 var (
 	Clients sync.Map
 	ClientCount atomic.Int64 // sync.Map doesnt have any len function
+	editorClient *mystruct.Client
 )
 
 var ButtonsHeld sync.Map
@@ -113,6 +117,18 @@ func startFrameSender(client *mystruct.Client) {
 	}
 }
 
+func setEditor(client *mystruct.Client) {
+	if client == nil {
+		editorClient = nil
+		broadcast([]byte(editorCommandPrefix + editorExitMsg))
+		return
+	}
+
+	editorClient = client
+	broadcast([]byte(editorCommandPrefix + client.Name))
+	client.Send <- []byte(editorCommandPrefix)
+}
+
 func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
@@ -147,6 +163,10 @@ func removeClient(client *mystruct.Client) {
 	}
 	broadcast([]byte(holdingCommandPrefix + usersHolding))
 	broadcast(applyHeldButtons(statuses))
+
+	if editorClient == client {
+		setEditor(nil)
+	}
 }
 
 func broadcast(text []byte) {
@@ -238,6 +258,10 @@ func readMessages(client *mystruct.Client) {
 	broadcast([]byte(holdingCommandPrefix + usersHolding))
 	broadcast([]byte(userListCommandPrefix + users))
 
+	if editorClient != nil {
+		client.Send <- []byte(editorCommandPrefix + editorClient.Name)
+	}
+
 	for {
 		msgType, message, err := client.Conn.ReadMessage()
 		if websocket.IsCloseError(err, websocket.CloseGoingAway) {
@@ -248,6 +272,16 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		if msgType != websocket.TextMessage {
+			continue
+		}
+
+		if message[0] == editorCommandPrefix[0] {
+			if editorClient == nil {
+				setEditor(client)
+			} else if editorClient == client {
+				setEditor(nil)
+			}
+
 			continue
 		}
 
