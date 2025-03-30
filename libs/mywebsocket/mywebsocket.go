@@ -24,8 +24,6 @@ const (
 	userListCommandPrefix = "u"
 	buttonListCommandPrefix = "b"
 	editorCommandPrefix = "e"
-
-	editorExitMsg = "null"
 )
 
 var (
@@ -120,13 +118,12 @@ func startFrameSender(client *mystruct.Client) {
 func setEditor(client *mystruct.Client) {
 	if client == nil {
 		editorClient = nil
-		broadcast([]byte(editorCommandPrefix + editorExitMsg))
+		broadcast([]byte(editorCommandPrefix))
 		return
 	}
 
 	editorClient = client
 	broadcast([]byte(editorCommandPrefix + client.Name))
-	client.Send <- []byte(editorCommandPrefix)
 }
 
 func addClient(client *mystruct.Client) {
@@ -242,6 +239,8 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
+
+	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 
 	buttons := buttonsToString()
 	client.Send <- []byte(buttonListCommandPrefix + buttons)

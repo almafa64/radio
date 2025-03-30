@@ -39,7 +39,11 @@ It uses these paths:
 ```
 
 #### Websocket
-First character detones the command 
+First character denotes the command 
+##### Client name
+```
+u*<name of client>
+```
 ##### User list update
 ```
 u[name of 1. user],...
@@ -51,4 +55,12 @@ h[<name of 1. user>;<button number>],...
 ##### Button status update
 ```
 <status of 1. button><status of 2. button>...
+```
+##### Editor request (requesting client -> server)
+```
+e
+```
+##### Current editor
+```
+e[name of client]
 ```

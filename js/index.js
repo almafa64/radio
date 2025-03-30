@@ -3,8 +3,6 @@ const user_list_command = "u";
 const button_list_command = "b";
 const editor_command = "e";
 
-const editor_exit_msg = "null"
-
 /** @type {WebSocket} */
 var socket;
 
@@ -17,6 +15,8 @@ var user_list;
 var user_count_span;
 /** @type {HTMLButtonElement[]} */
 var buttons;
+
+var my_name = "";
 
 /**
  * @param {HTMLButtonElement} button 
@@ -94,34 +94,18 @@ function buttons_change_event(buttons) {
  * @param {string} name
  */
 function editor_user_change_event(name) {
+    /** @type {HTMLButtonElement} */
     const editor_but = document.getElementById("editor_but");
 
-    // 1. if name == undefined (e): access granted for entering editor
-    // 2. if name != <editor_exit_msg>: other got access to it
-    // 3. if name == <editor_exit_msg>: editing client exited editor
-    // 1. uses the fact that 2. runs too on the requesting user, this is how button name is set for requester too
-    // TODO: this has to be redone with better logic using usernames (check if granted user is me) after events are fully thought out
+    editor_but.disabled = false;
+    document.getElementById("current_editor_span").innerText = name || "";
 
     if(name == undefined)
-    {
-        editor_but.disabled = false;
-        enter_editor();
-    }
-    else
-    {
         exit_editor();
-
-        if(name == editor_exit_msg)
-        {
-            document.getElementById("current_editor_span").innerText = "";
-            editor_but.disabled = false;
-        }
-        else
-        {
-            document.getElementById("current_editor_span").innerText = name;
-            editor_but.disabled = true;
-        }
-    }
+    else if(name == my_name)
+        enter_editor();
+    else
+        editor_but.disabled = true;
 }
 
 /**
@@ -294,7 +278,10 @@ window.onload = () => {
 
         switch (command) {
             case user_list_command:
-                users_change_event(args);
+                if(args[0][0] == '*')
+                    my_name = args[0].substring(1)
+                else
+                    users_change_event(args);
                 return;
             case holding_command:
                 holding_change_event(args);
