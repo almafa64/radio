@@ -88,11 +88,11 @@ func holdingClientsToString() string {
 func buttonsToString() string {
 	var builder strings.Builder
 	for _, button := range myhelper.GetData() {
-		builder.WriteString(button.Name);
+		builder.WriteString(button.Name)
 		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(button.Num));
+		builder.WriteString(strconv.Itoa(button.Num))
 		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(myhelper.BoolToInt(button.IsToggle)));
+		builder.WriteString(strconv.Itoa(myhelper.BoolToInt(button.IsToggle)))
 		builder.WriteByte(',')
 	}
 	return builder.String()
@@ -146,20 +146,22 @@ func removeClient(client *mystruct.Client) {
 		if value != client { return true }
 
 		ButtonsHeld.Delete(key)
+		usersHolding := holdingClientsToString()
+		broadcast([]byte(holdingCommandPrefix + usersHolding))
+
+		statuses := myfile.ReadPinStatuses()
+		if statuses == nil {
+			broadcast(socketReadError)
+			return false
+		}
+		broadcast(applyHeldButtons(statuses))
+
 		return false
 	})
 
-	usersHolding := holdingClientsToString()
-
 	log.Printf("%s disconnected. Total clients: %d", client.Name, ClientCount.Load())
+
 	broadcast([]byte(userListCommandPrefix + users))
-	statuses := myfile.ReadPinStatuses()
-	if statuses == nil {
-		broadcast(socketReadError)
-		return
-	}
-	broadcast([]byte(holdingCommandPrefix + usersHolding))
-	broadcast(applyHeldButtons(statuses))
 
 	if editorClient == client {
 		setEditor(nil)
@@ -252,9 +254,10 @@ func readMessages(client *mystruct.Client) {
 	}
 	client.Send <- applyHeldButtons(statuses)
 
-	users := clientsToString()
 	usersHolding := holdingClientsToString()
-	broadcast([]byte(holdingCommandPrefix + usersHolding))
+	client.Send <- []byte(holdingCommandPrefix + usersHolding)
+
+	users := clientsToString()
 	broadcast([]byte(userListCommandPrefix + users))
 
 	if editorClient != nil {
