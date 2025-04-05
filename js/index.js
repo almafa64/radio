@@ -146,13 +146,9 @@ window.onload = () => {
 
     init_buttons();
 
-    /** @type {HTMLCanvasElement} */
-    const canvas = document.getElementById("video");
-    /** @type {CanvasRenderingContext2D} */
-    var ctx;
-    if(canvas) ctx = canvas.getContext("2d");
+    const cameras = {};
 
-    var can_recive_frame = true;
+    var can_receive_frame = true;
 
     socket = new WebSocket("ws://" + location.host + "/radio_ws");
     socket.binaryType = 'arraybuffer';
@@ -165,24 +161,31 @@ window.onload = () => {
         const data = event.data;
 
         if(data instanceof ArrayBuffer) {
-            if(!can_recive_frame) return;
+            if(!can_receive_frame) return;
+            can_receive_frame = false;
 
-            can_recive_frame = false;
-            const blob = new Blob([data], { type: 'image/jpeg' });
-            const img = new Image();
-            img.onload = () => {
-                if(canvas.hidden) canvas.hidden = false;
+            let view = new DataView(data);
+            let id = view.getUint8(0);
 
-                ctx.drawImage(img, 0, 0);
-                can_recive_frame = true;
-                URL.revokeObjectURL(img.src);
+            if (!(id in cameras)) {
+                cameras[id] = document.getElementById(`video${id}`).getContext('2d');
             }
-            img.onerror = () => {
-                console.error("frame dropped");
-                can_recive_frame = true;
-                URL.revokeObjectURL(img.src);
-            };
-            img.src = URL.createObjectURL(blob);
+
+            let ctx = cameras[id];
+            let canvas = ctx.canvas;
+
+            const blob = new Blob([data.slice(1)], { type: 'image/jpeg' });
+
+            createImageBitmap(blob)
+                .then(img => {
+                    if(canvas.hidden) canvas.hidden = false;
+                    ctx.drawImage(img, 0, 0);
+                    can_receive_frame = true;
+                })
+                .catch(err => {
+                    console.err("failed to decode frame: ", err);
+                    can_receive_frame = true;
+                });
             return;
         }
 
