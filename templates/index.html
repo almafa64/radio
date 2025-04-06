@@ -22,7 +22,7 @@
         <div id="buttons">
             {{ range .Buttons }}
             <div class="button_container">
-                {{ if .Toggled }}
+                {{ if .IsToggle }}
                 <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" toggle>{{ .Name }}</button>
                 {{ else }}
                 <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" push>{{ .Name }}</button>

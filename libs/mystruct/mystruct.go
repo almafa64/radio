@@ -25,9 +25,9 @@ type CameraFrame struct {
 }
 
 type Button struct {
-    Name     string
-    Num      int
-    Toggled  bool
+    Name      string
+    Num       int
+    IsToggle  bool
 }
 
 type IndexTemplate struct {

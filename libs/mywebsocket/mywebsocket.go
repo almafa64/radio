@@ -94,10 +94,10 @@ func frameSender() {
 				return true
 			}
 			client.(*mystruct.Client).ConnLock.Lock()
-			defer client.(*mystruct.Client).ConnLock.Unlock()
-			defer wr.Close()
 			wr.Write([]byte{frame.CamId})
 			wr.Write(frame.Data)
+      wr.Close()
+      client.(*mystruct.Client).ConnLock.Unlock()
 			return true
 		})
 	}
@@ -115,6 +115,7 @@ func removeClient(client *mystruct.Client) {
 	users := clientsToString()
 	ClientCount.Add(-1)
 
+	defer close(client.FrameQueue)
 	client.Conn.Close()
 
 	ButtonsHeld.Range(func(key, value any) bool {

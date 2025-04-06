@@ -39,7 +39,7 @@ func GetData() []mystruct.Button {
         buttons[i] = mystruct.Button {
             Name: name,
             Num: i,
-            Toggled: modes[i] == 'T',
+            IsToggle: modes[i] == 'T',
         }
     }
 
