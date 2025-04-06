@@ -19,8 +19,8 @@ var buttons;
 var my_name = "";
 
 /**
- * @param {HTMLButtonElement} button 
- * @param {number} number 
+ * @param {HTMLButtonElement} button
+ * @param {number} number
  */
 function pressed(button, number)
 {
@@ -158,16 +158,16 @@ function init_buttons() {
         {
             button.onpointerdown = (e) => {
                 if(e.button != 0) return;
-    
+
                 const number = button.getAttribute("pin_num");
                 pressed(button, number);
             }
             continue;
         }
-    
+
         button.onpointerdown = (e) => {
             if(e.button != 0) return;
-    
+
             if(button.querySelector("p") !== null) return;
             const number = button.getAttribute("pin_num");
             pressed(button, number);
@@ -214,13 +214,8 @@ window.onload = () => {
     user_list = document.getElementById("users");
     user_count_span = document.getElementById("user_count");
 
-    /** @type {HTMLCanvasElement} */
-    const canvas = document.getElementById("video");
-    /** @type {CanvasRenderingContext2D} */
-    var ctx;
-    if(canvas) ctx = canvas.getContext("2d");
-    
-    var can_recive_frame = true;
+    const cameras = {};
+    var can_receive_frame = true;
 
     socket = new WebSocket("ws://" + location.host + "/radio_ws");
     socket.binaryType = 'arraybuffer';
@@ -233,45 +228,40 @@ window.onload = () => {
         const data = event.data;
 
         if(data instanceof ArrayBuffer) {
-            if(!can_recive_frame) return;
-            
-            can_recive_frame = false;
-            const blob = new Blob([data], { type: 'image/jpeg' });
-            const img = new Image();
-            img.onload = () => {
-                if(canvas.hidden)
-                {
-                    canvas.hidden = false;
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                }
-                
-                ctx.drawImage(img, 0, 0);
-                can_recive_frame = true;
-                URL.revokeObjectURL(img.src);
+            if(!can_receive_frame) return;
+            can_receive_frame = false;
+
+            let view = new DataView(data);
+            let id = view.getUint8(0);
+
+            if (!(id in cameras)) {
+                cameras[id] = document.getElementById(`video${id}`).getContext('2d');
             }
-            img.onerror = () => {
-                console.error("frame dropped");
-                can_recive_frame = true;
-                URL.revokeObjectURL(img.src);
-            };
-            img.src = URL.createObjectURL(blob);
+
+            let ctx = cameras[id];
+            let canvas = ctx.canvas;
+
+            const blob = new Blob([data.slice(1)], { type: 'image/jpeg' });
+
+            createImageBitmap(blob)
+                .then(img => {
+                    if(canvas.hidden)
+                    {
+                        canvas.hidden = false;
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                    }
+                    ctx.drawImage(img, 0, 0);
+                    can_receive_frame = true;
+                })
+                .catch(err => {
+                    console.err("failed to decode frame: ", err);
+                    can_receive_frame = true;
+                });
             return;
         }
 
         console.log("Message from server:", data);
-        
-        switch (data) {
-            case "closed":
-                alert("websocket closed")
-                return;
-            case "RE":
-                alert("Read error");
-                return;
-            case "WE":
-                alert("Write error");
-                return;
-        }
 
         const command = data[0];
         const args = parse_data(data);
