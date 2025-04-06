@@ -13,3 +13,8 @@ func CheckErrMsg(msg string, e error) {
 func CheckErr(e error) {
 	CheckErrMsg("", e)
 }
+
+func CheckTup[T any](x T, e error) T {
+	CheckErr(e)
+	return x
+}

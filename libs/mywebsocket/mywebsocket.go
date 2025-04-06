@@ -24,12 +24,6 @@ const (
 	userListCommandPrefix = "u"
 )
 
-var (
-	socketReadError = []byte("RE")
-	socketWriteError = []byte("WE")
-	socketClosed = []byte("closed")
-)
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
@@ -59,6 +53,7 @@ var (
 )
 
 var ButtonsHeld sync.Map
+var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
 
 func clientsToString() string {
 	var builder strings.Builder
@@ -91,18 +86,26 @@ func applyHeldButtons(statuses []byte) []byte {
 	return statuses
 }
 
-func startFrameSender(client *mystruct.Client) {
-	for frame := range client.FrameQueue {
-		if err := client.WriteToClient(websocket.BinaryMessage, frame); err != nil {
-			return
-		}
+func frameSender() {
+	for frame := range IncomingCameraFrames {
+		Clients.Range(func(client, _ any) bool {
+			wr, err := client.(*mystruct.Client).Conn.NextWriter(websocket.BinaryMessage)
+			if err != nil {
+				return true
+			}
+			client.(*mystruct.Client).ConnLock.Lock()
+			wr.Write([]byte{frame.CamId})
+			wr.Write(frame.Data)
+      wr.Close()
+      client.(*mystruct.Client).ConnLock.Unlock()
+			return true
+		})
 	}
 }
 
 func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
-	go startFrameSender(client)
 	go readMessages(client)
 	log.Printf("%s connected. Total clients: %d", client.Name, ClientCount.Load())
 }
@@ -128,7 +131,6 @@ func removeClient(client *mystruct.Client) {
 	broadcast([]byte(userListCommandPrefix + users))
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
-		broadcast(socketReadError)
 		return
 	}
 	broadcast([]byte(holdingCommandPrefix + usersHolding))
@@ -163,7 +165,6 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	client := &mystruct.Client{
 		Conn: conn,
 		Send: make(chan []byte),
-		FrameQueue: make(chan []byte, 5),
 		Name: name,
 	}
 
@@ -193,7 +194,6 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 			if !ok {
 				// Channel closed, terminate connection
 				log.Println(client.Name, "channel closed")
-				client.WriteToClient(websocket.TextMessage, socketClosed)
 				return
 			}
 
@@ -211,7 +211,6 @@ func readMessages(client *mystruct.Client) {
 
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
-		broadcast(socketReadError)
 		return
 	}
 	client.Send <- applyHeldButtons(statuses)
@@ -248,7 +247,6 @@ func readMessages(client *mystruct.Client) {
 		if !isToggleButton {
 			statuses = myfile.ReadPinStatuses()
 			if statuses == nil {
-				broadcast(socketReadError)
 				return
 			}
 
@@ -261,7 +259,6 @@ func readMessages(client *mystruct.Client) {
 		} else {
 			statuses = myhelper.TogglePinStatus(pin)
 			if statuses == nil {
-				broadcast(socketWriteError)
 				return
 			}
 		}
@@ -270,4 +267,8 @@ func readMessages(client *mystruct.Client) {
 		myparallel.WritePort(statuses)
 		broadcast(statuses)
 	}
+}
+
+func StartWorker() {
+	go frameSender()
 }

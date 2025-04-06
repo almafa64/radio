@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
 	"radio_site/libs/myparallel"
@@ -162,15 +163,17 @@ func printLineError(msg string, line_num int, line []string) {
 func CheckFile() {
     first_run := false
 
-    text, err := os.ReadFile(myconst.PIN_FILE_PATH)
+    path := myconfig.Get().Parallel.Config
+
+    text, err := os.ReadFile(path)
     if os.IsNotExist(err) {
-        pinFile, err = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR | os.O_CREATE, 0644)
+        pinFile, err = os.OpenFile(path, os.O_RDWR | os.O_CREATE, 0644)
         myerr.CheckErr(err)
         text = []byte("button 1;-;T")
         first_run = true
     } else {
         myerr.CheckErr(err)
-        pinFile, _ = os.OpenFile(myconst.PIN_FILE_PATH, os.O_RDWR, 0644)
+        pinFile, _ = os.OpenFile(path, os.O_RDWR, 0644)
     }
 
     // if last byte isnt \n then add it
