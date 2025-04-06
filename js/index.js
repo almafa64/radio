@@ -71,6 +71,9 @@ function users_change_event(users) {
         const li = document.createElement("li");
         li.innerText = user;
         user_list.appendChild(li);
+        if(user == my_name) {
+            li.style.backgroundColor = "green";
+        }
     }
 }
 
