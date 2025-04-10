@@ -14,7 +14,7 @@ var tryPaths = [...]string{DEFAULT_PATH, "/etc/rcrs.toml"}
 
 type Config struct {
 	Web Web
-	Peripheral Peripheral
+	Features Features
 	Camera []Camera
 	Parallel Parallel
 }
@@ -23,7 +23,7 @@ type Web struct {
 	Port uint16
 }
 
-type Peripheral struct {
+type Features struct {
 	Camera bool
 	Parallel bool
 }
@@ -44,7 +44,7 @@ var defaultConfig = Config{
 	Web: Web{
 		Port: 8080,
 	},
-	Peripheral: Peripheral{
+	Features: Features{
 		Camera: true,
 		Parallel: true,
 	},

@@ -31,7 +31,7 @@ func WritePort(pin_statuses []byte) {
 }
 
 func CheckPerm() (error) {
-    if !myconfig.Get().Peripheral.Parallel { return ErrParallelNotEnabled }
+    if !myconfig.Get().Features.Parallel { return ErrParallelNotEnabled }
     if C.ioperm(C.ulong(LPT_IO_PORT), 1, 1) != 0 {
         log.Printf("[LPT] Port 0x%X is not accessible (missing root privileges?)\n", LPT_IO_PORT)
         return ErrPortAccess

@@ -52,7 +52,7 @@ func main() {
 
     mytpl.TemplateInit()
 
-    if myconfig.Get().Peripheral.Camera {
+    if myconfig.Get().Features.Camera {
         mycamera.InitCamera()
     }
 
