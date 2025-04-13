@@ -163,7 +163,7 @@ func printLineError(msg string, line_num int, line []string) {
 func CheckFile() {
     first_run := false
 
-    path := myconfig.Get().Parallel.Config
+    path := myconfig.Get().PinFilePath
 
     text, err := os.ReadFile(path)
     if os.IsNotExist(err) {

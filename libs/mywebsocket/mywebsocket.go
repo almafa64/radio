@@ -1,6 +1,8 @@
 package mywebsocket
 
 import (
+	"encoding/json"
+	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
@@ -22,8 +24,8 @@ import (
 const (
 	holdingCommandPrefix = "h"
 	userListCommandPrefix = "u"
-	buttonListCommandPrefix = "b"
 	editorCommandPrefix = "e"
+	jsonCommandPrefix = "j"
 )
 
 var upgrader = websocket.Upgrader{
@@ -58,6 +60,11 @@ var (
 var ButtonsHeld sync.Map
 var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
 
+type wrap[T any] struct {
+	Event string;
+	Data T;
+}
+
 func clientsToString() string {
 	var builder strings.Builder
 	Clients.Range(func(key, value any) bool {
@@ -77,19 +84,6 @@ func holdingClientsToString() string {
 		builder.WriteByte(',')
 		return true
 	})
-	return builder.String()
-}
-
-func buttonsToString() string {
-	var builder strings.Builder
-	for _, button := range myhelper.GetData() {
-		builder.WriteString(button.Name)
-		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(button.Num))
-		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(myhelper.BoolToInt(button.IsToggle)))
-		builder.WriteByte(',')
-	}
 	return builder.String()
 }
 
@@ -128,6 +122,15 @@ func setEditor(client *mystruct.Client) {
 
 	editorClient = client
 	broadcast([]byte(editorCommandPrefix + client.Name))
+}
+
+func sendJSON[T any](data T, eventName string) {
+	out, err := json.Marshal(wrap[T]{eventName, data})
+	if err != nil {
+		log.Printf("%v", err)
+		return
+	}
+	broadcast(append([]byte(jsonCommandPrefix), out...))
 }
 
 func addClient(client *mystruct.Client) {
@@ -241,10 +244,9 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
+	sendJSON(myconfig.Get(), "page_scheme");
+	
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
-
-	buttons := buttonsToString()
-	client.Send <- []byte(buttonListCommandPrefix + buttons)
 
 	statuses := myfile.ReadPinStatuses()
 	if statuses == nil {
@@ -282,6 +284,29 @@ func readMessages(client *mystruct.Client) {
 				setEditor(nil)
 			}
 
+			continue
+		}
+
+		if message[0] == jsonCommandPrefix[0] {
+			var a wrap[json.RawMessage]
+			if err := json.Unmarshal(message[1:], &a); err != nil {
+				log.Println(client.Name, "error in json:", err)
+				continue
+			}
+			if a.Event == "" {
+				log.Println(client.Name, "strange json:", string(message[1:]))
+				continue
+			}
+
+			switch a.Event {
+			case "page_scheme":
+				var segments myconfig.Segments
+				if err = json.Unmarshal(a.Data, &segments); err != nil {
+					log.Println(client.Name, "error in json:", err, string(a.Data))
+					break
+				}
+				// TODO: save page and broadcast
+			}
 			continue
 		}
 

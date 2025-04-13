@@ -22,11 +22,6 @@ It uses these paths:
 ## Technical information
 
 ### Abbreviations
-#### Websocket communication:
-- `RE`: read error
-- `WE`: write error
-- `h`: user names who hold button
-- `u`: user list
 #### Pin file:
 - `T`: toggle button
 - `P`: push button
@@ -39,7 +34,7 @@ It uses these paths:
 ```
 
 #### Websocket
-First character denotes the command 
+First character denotes the command, remaining is the argument.
 ##### Client name
 ```
 u*<name of client>
@@ -63,4 +58,41 @@ e
 ##### Current editor
 ```
 e[name of client]
+```
+##### JSON events
+Command: `j`<br>
+Args: JSON string with event wrapper (`{Event: "<event name>", Data: <event data>}`)
+###### Page scheme data ("page_scheme")
+```json
+{
+	"WebPort": 8080,
+	"Features": {
+		"Camera": true,
+		"Parallel": true
+	},
+	"PinFilePath": "pins.txt",
+	"Segments": [                           // each segment can contain multiple modules (Type = "buttons" | "cam")
+		[
+			{
+				"Type": "buttons",           // button module
+				"Buttons": [
+					{
+						"Name": "button 1", // which pin to change on parallel port
+						"Pin": 0,           // name of button
+						"Default": 0,       // default state
+						"IsToggle": true    // 0: push button, 1: toggle button
+					}
+				]
+			},
+			{
+				"Type": "cam",             // camera module
+				"Name": "camera 1",        // name of camera
+				"Device": "/dev/video0",   // camera's access path
+				"Resolution": "1920x1080", // camera's resolution
+				"Fps": 30,                 // camera's fps
+				"Format": "mjpeg"          // camera's video format ("mjpeg")
+			}
+		]
+	]
+}
 ```

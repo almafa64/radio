@@ -16,7 +16,7 @@ import (
 	"github.com/vladimirvivien/go4vl/v4l2"
 )
 
-func cameraWorker(id int, config myconfig.Camera) {
+func cameraWorker(id int, config myconfig.CameraModule) {
 	var format uint32
 	switch config.Format {
 	case "mjpeg":
@@ -93,7 +93,13 @@ func cameraWorker(id int, config myconfig.Camera) {
 }
 
 func InitCamera() {
-	for id, config := range myconfig.Get().Camera {
-		go cameraWorker(id, config)
+	cameraCounter := 0
+
+	for _, segment := range myconfig.Get().Segments {
+		for _, module := range segment {
+			if module.GetType() != "cam" { continue }
+			go cameraWorker(cameraCounter, module.(myconfig.CameraModule))
+			cameraCounter++
+		}
 	}
 }

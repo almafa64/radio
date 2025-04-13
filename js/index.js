@@ -1,7 +1,47 @@
+"use strict";
+
+/**
+ * @typedef {Object} Module
+ * @property {string} Type
+ */
+
+/**
+ * @typedef {Object} Button
+ * @property {string} Name
+ * @property {number} Pin
+ * @property {number} Default
+ * @property {boolean} IsToggle
+ */
+
+/**
+ * @typedef {Object} ButtonModuleProperties
+ * @property {Button[]} Buttons
+ * @typedef {Module & ButtonModuleProperties} ButtonModule
+ */
+
+/**
+ * @typedef {Object} CameraModuleProperties
+ * @property {string} Name
+ * @property {number} Fps
+ * @property {string} Device
+ * @property {string} Format
+ * @property {string} Resolution
+ * @typedef {Module & CameraModuleProperties} CameraModule
+ */
+
+/**
+ * @typedef {Module[]} Segment
+ */
+
+/**
+ * @typedef {Object} PageSchemeData
+ * @property {Segment[]} Segments
+ */
+
 const holding_command = "h";
 const user_list_command = "u";
-const button_list_command = "b";
 const editor_command = "e";
+const json_command = "j";
 
 /** @type {WebSocket} */
 var socket;
@@ -15,6 +55,9 @@ var user_list;
 var user_count_span;
 /** @type {HTMLButtonElement[]} */
 var buttons;
+
+/** @type {Object<number, CanvasRenderingContext2D>} */
+const cameras = {};
 
 var my_name = "";
 
@@ -78,22 +121,6 @@ function users_change_event(users) {
 }
 
 /**
- * @param {string[]} buttons name;number;type(0: push, 1: toggle),...
- */
-function buttons_change_event(buttons) {
-    const button_holder = document.getElementById("buttons");
-
-    button_holder.innerHTML = "";
-
-    for(const button of buttons) {
-        const button_data = button.split(";")
-        button_holder.appendChild(create_button(button_data[0], button_data[1], button_data[2] == "1"));
-    }
-
-    init_buttons();
-}
-
-/**
  * @param {string} name
  */
 function editor_user_change_event(name) {
@@ -130,7 +157,7 @@ function holding_change_event(users) {
             button.removeChild(p);
         }
 
-        const user = user_button_pairs[button.getAttribute("pin_num")];
+        const user = user_button_pairs[button.dataset.pin];
         if(user !== undefined)
         {
             const p = document.createElement("p");
@@ -140,6 +167,7 @@ function holding_change_event(users) {
     }
 }
 
+// TODO: extend for >9 pin numbers
 /**
  * @param {string} data
  */
@@ -150,34 +178,111 @@ function pin_status_change_event(data) {
     }
 }
 
-// -------- Main part --------
+// -------- JSON events --------
 
-function init_buttons() {
-    buttons = document.querySelectorAll("#buttons button");
-
-    for(const button of buttons)
-    {
-        if(button.getAttribute("toggle") != null)
-        {
-            button.onpointerdown = (e) => {
-                if(e.button != 0) return;
-
-                const number = button.getAttribute("pin_num");
-                pressed(button, number);
-            }
-            continue;
-        }
-
-        button.onpointerdown = (e) => {
-            if(e.button != 0) return;
-
-            if(button.querySelector("p") !== null) return;
-            const number = button.getAttribute("pin_num");
-            pressed(button, number);
-            holding_buttons[e.pointerId] = number;
-        }
+/**
+ * @param {ButtonModule} module
+ * @param {HTMLDivElement} module_div
+ */
+function add_button_module(module, module_div) {
+    module_div.classList.value = "buttons";
+    module_div.innerHTML = "";
+    for(const button of module.Buttons) {
+        const button_elem = create_button(button.Name, button.Pin, (button.Default == -1) ? 1 : button.IsToggle);
+        button_elem.classList.value = get_button_class((button.Default == -1) ? "-" : button.Default);
+        module_div.appendChild(button_elem);
+        button_elem.dataset.default = button.Default
+        button_elem.dataset.isToggle = (button.Default == -1) ? 1 : button.IsToggle
+        button_elem.dataset.name = button.Name
+        button_elem.dataset.pin = button.Pin
     }
 }
+
+/**
+ * @param {CameraModule} module 
+ * @param {HTMLDivElement} module_div
+ */
+function add_camera_module(module, module_div, camera_id) {
+    module_div.classList.value = "";
+    var canvas = module_div.querySelector("canvas");
+    if (!canvas) {
+        module_div.innerHTML = `<canvas id="video${camera_id}"></canvas><p></p>`;
+        canvas = module_div.querySelector("canvas");
+        cameras[camera_id] = canvas.getContext("2d");
+    }
+    module_div.querySelector("p").innerText = module.Name;
+    canvas.dataset.format = module.Format
+    canvas.dataset.fps = module.Fps
+    canvas.dataset.name = module.Name
+    canvas.dataset.device = module.Device
+    canvas.dataset.resolution = module.Resolution
+    canvas.dataset.type = module.Type
+}
+
+/**
+ * @param {PageSchemeData} data 
+ */
+function page_scheme_event(data) {
+    var camera_counter = 0;
+
+    var remove_segments = [...document.getElementsByClassName("segments")];
+    var remove_modules = [...document.querySelectorAll(".segments > div")];
+
+    for(const segment_idx in data.Segments) {
+        const segment = data.Segments[segment_idx];
+        let id = `segment${segment_idx}`;
+        let segment_div = document.getElementById(id);
+        if (!segment_div) {
+            segment_div = document.createElement("div");
+            segment_div.id = id;
+            segment_div.classList.value = "segments";
+            document.body.appendChild(segment_div);
+        } else {
+            remove_segments = remove_segments.filter(v => v !== segment_div)
+        }
+        
+        for(const module_idx in segment) {
+            const module = segment[module_idx];
+            id = `module${segment_idx}-${module_idx}`;
+            let module_div = document.getElementById(id);
+            if (!module_div) {
+                module_div = document.createElement("div");
+                module_div.id = id;
+                segment_div.appendChild(module_div);
+            } else {
+                remove_modules = remove_modules.filter(v => v !== module_div)
+            }
+
+            switch (module.Type) {
+                case "buttons": add_button_module(module, module_div); break;
+                case "cam":     add_camera_module(module, module_div, camera_counter); camera_counter++; break;
+            }
+        }
+    }
+
+    for(const segment of remove_segments) {
+        segment.remove()
+    }
+
+    for(const module of remove_modules) {
+        module.remove()
+    }
+
+    buttons = document.querySelectorAll(".buttons button");
+}
+
+/**
+ * @param {string} data 
+ */
+function json_event(data) {
+    data = JSON.parse(data)
+    const event_data = data["Data"];
+    switch(data["Event"]) {
+        case "page_scheme": page_scheme_event(event_data); break;
+    }
+}
+
+// -------- Main part --------
 
 /**
  * @param {string} name 
@@ -187,13 +292,28 @@ function init_buttons() {
  */
 function create_button(name, num, isToggle) {
     const button = document.createElement("button");
-    button.setAttribute("pin_num", num);
-    if(isToggle) 
-        button.setAttribute("toggle", "");
-    else
-        button.setAttribute("push", "");
     button.innerText = name;
     button.id = `radio_${num}`;
+
+    if(isToggle)
+    {
+        button.onpointerdown = (e) => {
+            if(e.button != 0) return;
+
+            const number = button.dataset.pin;
+            pressed(button, number);
+        }
+    } else {
+        button.onpointerdown = (e) => {
+            if(e.button != 0) return;
+
+            if(button.querySelector("p") !== null) return;
+            const number = button.dataset.pin;
+            pressed(button, number);
+            holding_buttons[e.pointerId] = number;
+        }
+    }
+
     return button;
 }
 
@@ -217,7 +337,6 @@ window.onload = () => {
     user_list = document.getElementById("users");
     user_count_span = document.getElementById("user_count");
 
-    const cameras = {};
     var can_receive_frame = true;
 
     socket = new WebSocket("ws://" + location.host + "/radio_ws");
@@ -238,22 +357,23 @@ window.onload = () => {
             let id = view.getUint8(0);
 
             if (!(id in cameras)) {
-                cameras[id] = document.getElementById(`video${id}`).getContext('2d');
+                /** @type {HTMLCanvasElement} */
+                const canvas = document.getElementById(`video${id}`);
+                if (!canvas) return;
+                cameras[id] = canvas.getContext('2d');
             }
 
             let ctx = cameras[id];
             let canvas = ctx.canvas;
 
+            // TODO: use attribute "format"
             const blob = new Blob([data.slice(1)], { type: 'image/jpeg' });
 
+            // TODO: clear image after not reciving frames for x time
             createImageBitmap(blob)
                 .then(img => {
-                    if(canvas.hidden)
-                    {
-                        canvas.hidden = false;
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                    }
+                    canvas.width = img.width;
+                    canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
                     can_receive_frame = true;
                 })
@@ -279,11 +399,11 @@ window.onload = () => {
             case holding_command:
                 holding_change_event(args);
                 return;
-            case button_list_command:
-                buttons_change_event(args);
-                return;
             case editor_command:
                 editor_user_change_event(args[0]);
+                return;
+            case json_command:
+                json_event(args);
                 return;
         }
 

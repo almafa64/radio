@@ -21,42 +21,41 @@ body {
     font-size: 16px;
 }
 
-#buttons {
-    padding-top: 20px;
-    height: 100%;
+.buttons {
     width: 100%;
     display: flex;
     flex-wrap: wrap;
-    justify-content: space-around;
+    justify-content: left;
     align-items: center;
 }
 
-#buttons button {
+.buttons button {
     width: 120px;
     height: 120px;
     background-color: var(--button-color);
     border: var(--border-color) 2px solid;
     color: var(--font-color);
     user-select: none;
+    margin: 5px;
 }
 
-#buttons button:hover {
+.buttons button:hover {
     background-color: var(--button-hover-color);
 }
 
-#buttons button[push] {
+.buttons button[data-is-toggle=false] {
     background-color: var(--off-color);
 }
 
-#buttons button[push].on {
+.buttons button[data-is-toggle=false].on {
     background-color: var(--on-color);
 }
 
-#buttons .on {
+.buttons .on {
     border-color: var(--on-color);
 }
 
-#buttons .off {
+.buttons .off {
     border-color: var(--off-color);
 }
 
@@ -86,4 +85,36 @@ body {
     border: 2px solid var(--border-color);
     list-style-type: none;
     padding: 0 5px;
+}
+
+.segments {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.segments > div {
+    flex: 1;
+    margin: 0 10px;
+    border: 2px solid var(--border-color);
+    position: relative;
+}
+
+canvas + p {
+    position: absolute;
+    top: 0;
+    left : 0;
+    border: 2px solid var(--border-color);
+    background-color: var(--button-color);
+    border-top: none;
+    border-left: none;
+    display: inline;
+    margin: 0;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
 }

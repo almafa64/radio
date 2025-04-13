@@ -64,7 +64,7 @@ func main() {
     http.HandleFunc("/", pageHandler)
     http.HandleFunc("/radio_ws", mywebsocket.WsHandler)
 
-    webPort := myconfig.Get().Web.Port
+    webPort := myconfig.Get().WebPort
     log.Printf("Starting HTTP server on :%d", webPort)
 
     http.ListenAndServe(fmt.Sprintf(":%d", webPort), nil)

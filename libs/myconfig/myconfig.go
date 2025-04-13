@@ -1,22 +1,80 @@
 package myconfig
 
 import (
-	"bytes"
+	"encoding/json"
 	"errors"
 	"log"
 	"os"
-
-	"github.com/pelletier/go-toml"
 )
 
-const DEFAULT_PATH = "rcrs.toml"
-var tryPaths = [...]string{DEFAULT_PATH, "/etc/rcrs.toml"}
+const DEFAULT_PATH = "config.json"
+var tryPaths = [...]string{DEFAULT_PATH, "/etc/" + DEFAULT_PATH}
+
+type IModule interface {
+	GetType() string
+}
+
+type Module struct {
+	Type string
+}
+
+func (m Module) GetType() string {
+	return m.Type
+}
+
+type Segment []IModule
+type Segments []Segment
+
+func (t *Segment) UnmarshalJSON(data []byte) error {
+	var modules []json.RawMessage
+	if err := json.Unmarshal(data, &modules); err != nil {
+		return err
+	}
+
+	for _, module := range modules {
+		var mod Module
+		if err := json.Unmarshal(module, &mod); err != nil {
+			return err
+		}
+		
+		switch mod.Type {
+		case "cam":
+			var cam_module CameraModule
+			if err := json.Unmarshal(module, &cam_module); err != nil {
+				return err
+			}
+			*t = append(*t, cam_module)
+		case "buttons":
+			var but_module ButtonModule
+			if err := json.Unmarshal(module, &but_module); err != nil {
+				return err
+			}
+			*t = append(*t, but_module)
+		default:
+			return errors.New("no module named '" + mod.Type + "'")
+		}
+	}
+
+	return nil
+}
+
+type Button struct {
+	Name string
+	Pin uint64
+	Default int8
+	IsToggle bool
+}
+
+type ButtonModule struct {
+	Module
+	Buttons []Button
+}
 
 type Config struct {
-	Web Web
+	WebPort uint16
 	Features Features
-	Camera []Camera
-	Parallel Parallel
+	PinFilePath string
+	Segments Segments
 }
 
 type Web struct {
@@ -28,7 +86,8 @@ type Features struct {
 	Parallel bool
 }
 
-type Camera struct {
+type CameraModule struct {
+	Module
 	Name string
 	Device string
 	Resolution string
@@ -36,23 +95,17 @@ type Camera struct {
 	Format string
 }
 
-type Parallel struct {
-	Config string
-}
-
 var defaultConfig = Config{
-	Web: Web{
-		Port: 8080,
-	},
+	WebPort: 8080,
 	Features: Features{
 		Camera: true,
 		Parallel: true,
 	},
-	Camera: []Camera{},
-	Parallel: Parallel{Config: "pins.txt"},
+	PinFilePath: "pins.txt",
+	Segments: Segments{},
 }
 
-var ErrConfigNotFound = errors.New("No config files found");
+var ErrConfigNotFound = errors.New("no config files found");
 
 func Load() error {
 	var contents []byte
@@ -75,7 +128,7 @@ func Load() error {
 	}
 
 	config := new(Config)
-	err := toml.Unmarshal(contents, config)
+	err := json.Unmarshal(contents, config)
 
 	globalConfig = config
 
@@ -83,17 +136,12 @@ func Load() error {
 }
 
 func Save(config *Config, path string) error {
-	var data bytes.Buffer
-	encoder := toml.NewEncoder(&data)
-	encoder.Order(toml.OrderPreserve)
-	encoder.Indentation("")
-
-	err := encoder.Encode(config)
+	data, err := json.MarshalIndent(config, "", "\t")
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(path, data.Bytes(), os.FileMode(0o644))
+	err = os.WriteFile(path, data, os.FileMode(0o644))
 	if err != nil {
 		return err
 	}
