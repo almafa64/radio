@@ -124,13 +124,13 @@ func setEditor(client *mystruct.Client) {
 	broadcast([]byte(editorCommandPrefix + client.Name))
 }
 
-func sendJSON[T any](data T, eventName string) {
+func JSONEventMaker[T any](data T, eventName string) []byte {
 	out, err := json.Marshal(wrap[T]{eventName, data})
 	if err != nil {
 		log.Printf("%v", err)
-		return
+		return nil
 	}
-	broadcast(append([]byte(jsonCommandPrefix), out...))
+	return append([]byte(jsonCommandPrefix), out...)
 }
 
 func addClient(client *mystruct.Client) {
@@ -244,7 +244,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	sendJSON(myconfig.Get(), "page_scheme");
+	client.Send <- JSONEventMaker(myconfig.Get(), "page_scheme");
 	
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 

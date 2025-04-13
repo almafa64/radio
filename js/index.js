@@ -223,6 +223,8 @@ function add_camera_module(module, module_div, camera_id) {
  * @param {PageSchemeData} data 
  */
 function page_scheme_event(data) {
+    window.onblur() // clear all held buttons
+
     var camera_counter = 0;
 
     var remove_segments = [...document.getElementsByClassName("segments")];
