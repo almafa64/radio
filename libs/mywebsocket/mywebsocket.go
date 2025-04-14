@@ -244,7 +244,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	client.Send <- JSONEventMaker(myconfig.Get(), "page_scheme");
+	client.Send <- JSONEventMaker(myconfig.Get().Segments, "page_scheme");
 	
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 

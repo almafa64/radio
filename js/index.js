@@ -34,8 +34,7 @@
  */
 
 /**
- * @typedef {Object} PageSchemeData
- * @property {Segment[]} Segments
+ * @typedef {Segment[]} PageSchemeData
  */
 
 const holding_command = "h";
@@ -230,8 +229,8 @@ function page_scheme_event(data) {
     var remove_segments = [...document.getElementsByClassName("segments")];
     var remove_modules = [...document.querySelectorAll(".segments > div")];
 
-    for(const segment_idx in data.Segments) {
-        const segment = data.Segments[segment_idx];
+    for(const segment_idx in data) {
+        const segment = data[segment_idx];
         let id = `segment${segment_idx}`;
         let segment_div = document.getElementById(id);
         if (!segment_div) {
