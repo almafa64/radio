@@ -92,13 +92,15 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 	}
 }
 
+// TODO: stop all camera goroutine when this called
 func InitCamera() {
 	cameraCounter := 0
 
 	for _, segment := range myconfig.Get().Segments {
 		for _, module := range segment {
-			if module.GetType() != "cam" { continue }
-			go cameraWorker(cameraCounter, module.(myconfig.CameraModule))
+			camera, ok := module.(myconfig.CameraModule)
+			if !ok { continue }
+			go cameraWorker(cameraCounter, camera)
 			cameraCounter++
 		}
 	}

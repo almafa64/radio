@@ -1,6 +1,7 @@
 package myfile
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -156,24 +157,75 @@ func WriteWholePinFileFD(data []byte) error {
     return WritePinFileFD(data, -1)
 }
 
+func buttonToBytes(button myconfig.Button, text *bytes.Buffer)  {
+    text.WriteString(button.Name)
+    text.WriteByte(';')
+    status := "-"
+    if button.Default != -1 {
+        status = strconv.Itoa(int(button.Default))
+    }
+    text.WriteString(status)
+    text.WriteByte(';')
+    if button.IsToggle {
+        text.WriteByte('T')
+    } else {
+        text.WriteByte('P')
+    }
+    text.WriteByte('\n')
+}
+
+func buttonModulesToPinFile() ([]byte, []myconfig.Button) {
+    text := new(bytes.Buffer)
+    var buttons []myconfig.Button
+    for _, segment := range myconfig.Get().Segments {
+        for _, module := range segment {
+            v, ok := module.(myconfig.ButtonModule)
+            if !ok { continue }
+            for _, button := range v.Buttons {
+                buttonToBytes(button, text)
+                buttons = append(buttons, button)
+            }
+        }
+    }
+    return text.Bytes(), buttons
+}
+
 func printLineError(msg string, line_num int, line []string) {
     log.Println(msg + " in line #" + strconv.Itoa(line_num) + " '" + strings.Join(line, ";") + "'")
 }
 
 func CheckFile() {
     first_run := false
-
+    
     path := myconfig.Get().PinFilePath
+    
+    if !myconfig.Get().Features.SavePinStatus {
+        // TODO: buttons is temporary while global buttons array doesnt exists
+        text, buttons := buttonModulesToPinFile()
+        os.WriteFile(path, text, 0644)
+        pinFile, _ = os.OpenFile(path, os.O_RDWR | os.O_CREATE, 0644)
+        
+        statuses := make([]byte, len(buttons))
+        for i, button := range buttons {
+            statuses[i] = strconv.Itoa(int(button.Default))[0]
+            if !button.IsToggle {
+                pushButtons[i] = struct{}{}
+            }
+        }
+        myparallel.WritePort(statuses)
+        return
+    }
 
     text, err := os.ReadFile(path)
     if os.IsNotExist(err) {
         pinFile, err = os.OpenFile(path, os.O_RDWR | os.O_CREATE, 0644)
         myerr.CheckErr(err)
-        text = []byte("button 1;-;T")
+        text, _ = buttonModulesToPinFile()
         first_run = true
     } else {
         myerr.CheckErr(err)
         pinFile, _ = os.OpenFile(path, os.O_RDWR, 0644)
+        // TODO: modify pin file if different from config (name/mode/entry change, etc)
     }
 
     // if last byte isnt \n then add it

@@ -84,6 +84,7 @@ type Web struct {
 type Features struct {
 	Camera bool
 	Parallel bool
+	SavePinStatus bool
 }
 
 type CameraModule struct {
@@ -100,6 +101,7 @@ var defaultConfig = Config{
 	Features: Features{
 		Camera: true,
 		Parallel: true,
+		SavePinStatus: false,
 	},
 	PinFilePath: "pins.txt",
 	Segments: Segments{},
