@@ -7,8 +7,9 @@ import (
 	"os"
 )
 
-const DEFAULT_PATH = "config.json"
-var tryPaths = [...]string{DEFAULT_PATH, "/etc/" + DEFAULT_PATH}
+const CONFIG_FILE_PATH = "config.json"
+
+var tryPaths = [...]string{CONFIG_FILE_PATH, "/etc/" + CONFIG_FILE_PATH}
 
 type IModule interface {
 	GetType() string
@@ -36,7 +37,7 @@ func (t *Segment) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(module, &mod); err != nil {
 			return err
 		}
-		
+
 		switch mod.Type {
 		case "cam":
 			var cam_module CameraModule
@@ -59,9 +60,9 @@ func (t *Segment) UnmarshalJSON(data []byte) error {
 }
 
 type Button struct {
-	Name string
-	Pin uint64
-	Default int8
+	Name     string
+	Pin      uint64
+	Default  int8
 	IsToggle bool
 }
 
@@ -71,10 +72,10 @@ type ButtonModule struct {
 }
 
 type Config struct {
-	WebPort uint16
-	Features Features
+	WebPort     uint16
+	Features    Features
 	PinFilePath string
-	Segments Segments
+	Segments    Segments
 }
 
 type Web struct {
@@ -82,32 +83,37 @@ type Web struct {
 }
 
 type Features struct {
-	Camera bool
-	Parallel bool
+	Camera        bool
+	Parallel      bool
 	SavePinStatus bool
 }
 
 type CameraModule struct {
 	Module
-	Name string
-	Device string
+	Name       string
+	Device     string
 	Resolution string
-	Fps uint32
-	Format string
+	Fps        uint32
+	Format     string
+}
+
+var buttonCount = 0 // TODO: tmp until global buttons array doesnt exists
+func GetButtonCount() int {
+	return buttonCount
 }
 
 var defaultConfig = Config{
 	WebPort: 8080,
 	Features: Features{
-		Camera: true,
-		Parallel: true,
+		Camera:        true,
+		Parallel:      true,
 		SavePinStatus: false,
 	},
 	PinFilePath: "pins.txt",
-	Segments: Segments{},
+	Segments:    Segments{},
 }
 
-var ErrConfigNotFound = errors.New("no config files found");
+var ErrConfigNotFound = errors.New("no config files found")
 
 func Load() error {
 	var contents []byte
@@ -121,7 +127,7 @@ func Load() error {
 		}
 
 		contents = data
-		log.Printf("Loading config file at %s", path);
+		log.Printf("Loading config file at %s", path)
 		break
 	}
 
@@ -133,6 +139,15 @@ func Load() error {
 	err := json.Unmarshal(contents, config)
 
 	globalConfig = config
+
+	buttonCount = 0
+	for _, segment := range globalConfig.Segments {
+		for _, module := range segment {
+			if v, ok := module.(ButtonModule); ok {
+				buttonCount += len(v.Buttons)
+			}
+		}
+	}
 
 	return err
 }
@@ -155,7 +170,7 @@ func Save(config *Config, path string) error {
 func LoadOrSaveDefault() error {
 	err := Load()
 	if errors.Is(err, ErrConfigNotFound) {
-		err = Save(&defaultConfig, DEFAULT_PATH)
+		err = Save(&defaultConfig, CONFIG_FILE_PATH)
 		if err == nil {
 			globalConfig = new(Config)
 			*globalConfig = defaultConfig

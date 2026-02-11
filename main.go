@@ -4,11 +4,9 @@ import (
 	"fmt"
 	"radio_site/libs/mycamera"
 	"radio_site/libs/myconfig"
-	"radio_site/libs/myconst"
-	"radio_site/libs/myerr"
+		"radio_site/libs/myerr"
 	"radio_site/libs/myfile"
-	"radio_site/libs/myparallel"
-
+	
 	"radio_site/libs/mytpl"
 	"radio_site/libs/mywebsocket"
 
@@ -34,13 +32,13 @@ func index(res http.ResponseWriter) {
 }
 
 func main() {
-    err := myconfig.LoadOrSaveDefault();
+	err := myconfig.LoadOrSaveDefault()
     if err != nil {
         log.Fatalln(err)
     }
 
-    if myconst.MAX_NUMBER_OF_PINS > 63 || myconst.MAX_NUMBER_OF_PINS < 1 {
-        log.Fatalln("MAX_NUMBER_OF_PINS cannot be bigger than 63, nor smaller than 1")
+	if myconfig.GetButtonCount() > 63 || myconfig.GetButtonCount() < 1 {
+		log.Fatalln("There cannot be more buttons than 63, nor less than 1")
     }
 
     if err := myparallel.CheckPerm(); err == myparallel.ErrPortAccess {
@@ -55,8 +53,6 @@ func main() {
     if myconfig.Get().Features.Camera {
         mycamera.InitCamera()
     }
-
-    mywebsocket.StartWorker()
 
     http.Handle("/css/", http.StripPrefix("/css", http.FileServer(http.Dir("./css"))))
     http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./js"))))

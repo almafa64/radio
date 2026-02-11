@@ -222,7 +222,7 @@ function add_camera_module(module, module_div, camera_id) {
  * @param {PageSchemeData} data 
  */
 function page_scheme_event(data) {
-    window.onblur() // clear all held buttons
+    window.onblur(); // clear all held buttons
 
     var camera_counter = 0;
 
@@ -379,7 +379,7 @@ window.onload = () => {
                     can_receive_frame = true;
                 })
                 .catch(err => {
-                    console.err("failed to decode frame: ", err);
+                    console.error("failed to decode frame: ", err);
                     can_receive_frame = true;
                 });
             return;

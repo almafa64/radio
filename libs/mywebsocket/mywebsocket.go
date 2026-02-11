@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	holdingCommandPrefix = "h"
+	holdingCommandPrefix  = "h"
 	userListCommandPrefix = "u"
-	editorCommandPrefix = "e"
-	jsonCommandPrefix = "j"
+	editorCommandPrefix   = "e"
+	jsonCommandPrefix     = "j"
 )
 
 var upgrader = websocket.Upgrader{
@@ -49,11 +49,12 @@ var upgrader = websocket.Upgrader{
 
 		return strings.EqualFold(u.Hostname(), host)
 	},
+	EnableCompression: true,
 }
 
 var (
-	Clients sync.Map
-	ClientCount atomic.Int64 // sync.Map doesnt have any len function
+	Clients      sync.Map
+	ClientCount  atomic.Int64 // sync.Map doesnt have any len function
 	editorClient *mystruct.Client
 )
 
@@ -61,8 +62,8 @@ var ButtonsHeld sync.Map
 var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
 
 type wrap[T any] struct {
-	Event string;
-	Data T;
+	Event string
+	Data  T
 }
 
 func clientsToString() string {
@@ -96,20 +97,11 @@ func applyHeldButtons(statuses []byte) []byte {
 	return statuses
 }
 
-func frameSender() {
-	for frame := range IncomingCameraFrames {
-		Clients.Range(func(client, _ any) bool {
-			wr, err := client.(*mystruct.Client).Conn.NextWriter(websocket.BinaryMessage)
-			if err != nil {
-				return true
-			}
-			client.(*mystruct.Client).ConnLock.Lock()
-			wr.Write([]byte{frame.CamId})
-			wr.Write(frame.Data)
-			wr.Close()
-			client.(*mystruct.Client).ConnLock.Unlock()
-			return true
-		})
+func frameSender(client *mystruct.Client) {
+	for prepMessage := range client.PrepMessageQueue {
+		client.ConnLock.Lock()
+		client.Conn.WritePreparedMessage(prepMessage)
+		client.ConnLock.Unlock()
 	}
 }
 
@@ -136,7 +128,9 @@ func JSONEventMaker[T any](data T, eventName string) []byte {
 func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
+	client.Conn.EnableWriteCompression(true)
 	go readMessages(client)
+	go frameSender(client)
 	log.Printf("%s connected. Total clients: %d", client.Name, ClientCount.Load())
 }
 
@@ -146,9 +140,12 @@ func removeClient(client *mystruct.Client) {
 	ClientCount.Add(-1)
 
 	client.Conn.Close()
+	close(client.PrepMessageQueue)
 
 	ButtonsHeld.Range(func(key, value any) bool {
-		if value != client { return true }
+		if value != client {
+			return true
+		}
 
 		ButtonsHeld.Delete(key)
 		usersHolding := holdingClientsToString()
@@ -198,9 +195,10 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	}
 
 	client := &mystruct.Client{
-		Conn: conn,
-		Send: make(chan []byte),
-		Name: name,
+		Conn:             conn,
+		Send:             make(chan []byte),
+		Name:             name,
+		PrepMessageQueue: make(chan *websocket.PreparedMessage, 5),
 	}
 
 	addClient(client)
@@ -244,8 +242,8 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	client.Send <- JSONEventMaker(myconfig.Get().Segments, "page_scheme");
-	
+	client.Send <- JSONEventMaker(myconfig.Get().Segments, "page_scheme")
+
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 
 	statuses := myfile.ReadPinStatuses()
@@ -278,9 +276,10 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		if message[0] == editorCommandPrefix[0] {
-			if editorClient == nil {
+			switch editorClient {
+			case nil:
 				setEditor(client)
-			} else if editorClient == client {
+			case client:
 				setEditor(nil)
 			}
 
@@ -312,7 +311,7 @@ func readMessages(client *mystruct.Client) {
 
 		// check if message is number and in range of max pin number
 		pin, err := strconv.Atoi(string(message))
-		if err != nil || pin >= myconst.MAX_NUMBER_OF_PINS {
+		if err != nil || pin >= myconfig.GetButtonCount() {
 			continue
 		}
 
@@ -328,8 +327,12 @@ func readMessages(client *mystruct.Client) {
 			}
 
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
-			if value != client { continue }       // if button is not held by requesting user, deny it
-			if loaded { ButtonsHeld.Delete(pin) } // if button already held by requesting user, release it
+			if value != client { // if button is not held by requesting user, deny it
+				continue
+			}
+			if loaded { // if button already held by requesting user, release it
+				ButtonsHeld.Delete(pin)
+			}
 
 			usersHolding := holdingClientsToString()
 			broadcast([]byte(holdingCommandPrefix + usersHolding))
@@ -344,8 +347,4 @@ func readMessages(client *mystruct.Client) {
 		myparallel.WritePort(statuses)
 		broadcast(statuses)
 	}
-}
-
-func StartWorker() {
-	go frameSender()
 }

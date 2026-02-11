@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/vladimirvivien/go4vl/device"
 	"github.com/vladimirvivien/go4vl/v4l2"
 )
@@ -23,16 +24,16 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 		format = v4l2.PixelFmtMJPEG
 	default:
 		log.Fatalf("[camera/%s] Unsupported image format: %s", config.Name, config.Format)
-	};
+	}
 
-	resolution := strings.Split(config.Resolution, "x");
+	resolution := strings.Split(config.Resolution, "x")
 	width := myerr.CheckTup(strconv.ParseInt(resolution[0], 10, 32))
 	height := myerr.CheckTup(strconv.ParseInt(resolution[1], 10, 32))
 
 	pix_fmt := v4l2.PixFormat{
 		PixelFormat: format,
-		Width: uint32(width),
-		Height: uint32(height),
+		Width:       uint32(width),
+		Height:      uint32(height),
 	}
 
 	var err error
@@ -41,6 +42,11 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 	for {
 		retry := false
 		for {
+			if camera != nil {
+				camera.Close()
+				camera = nil
+			}
+
 			camera, err = device.Open(
 				config.Device,
 				device.WithPixFormat(pix_fmt),
@@ -53,11 +59,13 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 			} else if !retry {
 				log.Printf("[camera/%s] device open: %s", config.Name, err)
 				retry = true
+				time.Sleep(myconst.CAMERA_TRY_TIMEOUT)
 			}
-			time.Sleep(myconst.CAMERA_TRY_TIMEOUT)
 		}
 
 		for {
+			camera.Stop()
+			camera.GetFrames() // needed for Start(), nothing else
 			if err := camera.Start(context.Background()); err == nil {
 				retry = false
 				log.Printf("Started %s", config.Name)
@@ -65,30 +73,32 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 			} else if !retry {
 				log.Printf("[camera/%s] device start: %s", config.Name, err)
 				retry = true
+				time.Sleep(myconst.CAMERA_TRY_TIMEOUT)
 			}
-			time.Sleep(myconst.CAMERA_TRY_TIMEOUT)
 		}
 
 		timeoutClock := time.NewTicker(myconst.CAMERA_FRAME_TIMEOUT)
 
 		log.Printf("[camera/%s] %s connected", config.Name, config.Device)
-		FRAMELOOP: for {
+	FRAMELOOP:
+		for {
 			select {
-			case frame := <- camera.GetOutput():
+			case frame := <-camera.GetFrames():
+				prepmsg, _ := websocket.NewPreparedMessage(websocket.BinaryMessage, append([]byte{byte(id)}, frame.Data...))
+
 				mywebsocket.Clients.Range(func(key, value any) bool {
-					mywebsocket.IncomingCameraFrames <- mystruct.CameraFrame{
-						CamId: uint8(id),
-						Data:  frame,
-					}
+					key.(*mystruct.Client).PrepMessageQueue <- prepmsg
 					return true
 				})
 				timeoutClock.Reset(myconst.CAMERA_FRAME_TIMEOUT)
+
+				frame.Release()
 			case <-timeoutClock.C:
 				break FRAMELOOP
 			}
 		}
 		log.Printf("[camera/%s] %s disconnected", config.Name, config.Device)
-		camera.Stop()
+		camera.Close()
 	}
 }
 
@@ -99,7 +109,9 @@ func InitCamera() {
 	for _, segment := range myconfig.Get().Segments {
 		for _, module := range segment {
 			camera, ok := module.(myconfig.CameraModule)
-			if !ok { continue }
+			if !ok {
+				continue
+			}
 			go cameraWorker(cameraCounter, camera)
 			cameraCounter++
 		}

@@ -7,7 +7,7 @@ All configuration options can be found in libs/myconst/myconst.go
 
 ## Running
 Just run `go run .` in the folder where you found `README.md`.<br>
-The first time it generates `pins.txt` based on `myconst.MAX_NUMBER_OF_PINS` then quits to let you configure the file.<br>
+The first time it generates `pins.txt` based on `myconfig.GetButtonCount()` then quits to let you configure the file.<br>
 After that you can restart it and it'll start on port `8080` (if you haven't changed it)
 
 If you want parallel port support you'll need to run with root privileges.

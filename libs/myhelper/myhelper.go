@@ -1,54 +1,59 @@
 package myhelper
 
 import (
-	"radio_site/libs/myconst"
+	"radio_site/libs/myconfig"
 	"radio_site/libs/myfile"
 	"radio_site/libs/mystruct"
 )
 
 func InvertStatusByte(statuses []byte, pin int) {
-    if statuses[pin] == '1' {
-        statuses[pin] = '0'
-    } else if statuses[pin] == '0' {
-        statuses[pin] = '1'
-    }
+	switch statuses[pin] {
+	case '1':
+		statuses[pin] = '0'
+	case '0':
+		statuses[pin] = '1'
+	}
 }
 
 func TogglePinStatus(pin int) []byte {
-    statuses := myfile.ReadPinStatuses()
-    if statuses == nil { return nil }
+	statuses := myfile.ReadPinStatuses()
+	if statuses == nil {
+		return nil
+	}
 
-    InvertStatusByte(statuses, pin)
+	InvertStatusByte(statuses, pin)
 
-    if err := myfile.WritePinFile(statuses); err != nil {
-        return nil
-    }
-    return statuses
+	if err := myfile.WritePinFile(statuses); err != nil {
+		return nil
+	}
+	return statuses
 }
 
 func GetData() []mystruct.Button {
-    buttons := make([]mystruct.Button, myconst.MAX_NUMBER_OF_PINS)
+	buttons := make([]mystruct.Button, myconfig.GetButtonCount())
 
-    names := myfile.ReadPinNames()
-    if names == nil { return nil }
-    modes := myfile.ReadPinModes()
+	names := myfile.ReadPinNames()
+	if names == nil {
+		return nil
+	}
+	modes := myfile.ReadPinModes()
 
-    for i := 0; i < myconst.MAX_NUMBER_OF_PINS; i++ {
-        name := names[i]
+	for i := 0; i < myconfig.GetButtonCount(); i++ {
+		name := names[i]
 
-        buttons[i] = mystruct.Button {
-            Name: name,
-            Num: i,
-            IsToggle: modes[i] == 'T',
-        }
-    }
+		buttons[i] = mystruct.Button{
+			Name:     name,
+			Num:      i,
+			IsToggle: modes[i] == 'T',
+		}
+	}
 
-    return buttons
+	return buttons
 }
 
 func BoolToInt(b bool) int {
-    if b {
-        return 1
-    }
-    return 0
+	if b {
+		return 1
+	}
+	return 0
 }
