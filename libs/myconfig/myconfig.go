@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log"
 	"os"
+
+	"github.com/samber/lo"
 )
 
 const CONFIG_FILE_PATH = "config.json"
@@ -72,10 +74,10 @@ type ButtonModule struct {
 }
 
 type Config struct {
-	WebPort     uint16
-	Features    Features
-	PinFilePath string
-	Segments    Segments
+	WebPort       uint16
+	Features      Features
+	StateFilePath string
+	Segments      Segments
 }
 
 type Web struct {
@@ -97,9 +99,39 @@ type CameraModule struct {
 	Format     string
 }
 
-var buttonCount = 0 // TODO: tmp until global buttons array doesnt exists
+// TODO: (c *Config)
 func GetButtonCount() int {
-	return buttonCount
+	return len(globalConfig.GetAllButton())
+}
+
+// TODO: make dirty modifier and cache count
+func (c *Config) GetAllButton() []Button {
+	buttons := make([]Button, 0)
+
+	for _, segment := range c.Segments {
+		for _, module := range segment {
+			if v, ok := module.(ButtonModule); ok {
+				buttons = append(buttons, v.Buttons...)
+			}
+		}
+	}
+
+	return buttons
+}
+
+// TODO: make dirty modifier and cache buttons
+func (c *Config) GetButtonByPin(pin int) *Button {
+	for _, segment := range c.Segments {
+		for _, module := range segment {
+			if v, ok := module.(ButtonModule); ok {
+				if v, ok := lo.Find(v.Buttons, func(e Button) bool { return int(e.Pin) == pin }); ok {
+					return &v
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 var defaultConfig = Config{
@@ -109,8 +141,8 @@ var defaultConfig = Config{
 		Parallel:      true,
 		SavePinStatus: false,
 	},
-	PinFilePath: "pins.txt",
-	Segments:    Segments{},
+	StateFilePath: "state.json",
+	Segments:      Segments{},
 }
 
 var ErrConfigNotFound = errors.New("no config files found")
@@ -139,15 +171,6 @@ func Load() error {
 	err := json.Unmarshal(contents, config)
 
 	globalConfig = config
-
-	buttonCount = 0
-	for _, segment := range globalConfig.Segments {
-		for _, module := range segment {
-			if v, ok := module.(ButtonModule); ok {
-				buttonCount += len(v.Buttons)
-			}
-		}
-	}
 
 	return err
 }

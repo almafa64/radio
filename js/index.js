@@ -173,6 +173,7 @@ function holding_change_event(users) {
 function pin_status_change_event(data) {
     for(var i = 0; i < data.length; i++)
     {
+        if(data[i] == '\0') continue;
         buttons[i].classList = get_button_class(data[i]);
     }
 }
@@ -408,13 +409,16 @@ window.onload = () => {
                 return;
         }
 
-        if(buttons.length !== data.length)
+        /** @type {string} */
+        let statuses = data;
+        
+        if(statuses.length != 64)
         {
-            console.log("wrong length of data");
+            console.log("wrong length of statuses");
             return;
         }
 
-        pin_status_change_event(data);
+        pin_status_change_event(statuses);
     };
 
     socket.onclose = (event) => {

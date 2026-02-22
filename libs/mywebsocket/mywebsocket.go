@@ -1,21 +1,21 @@
 package mywebsocket
 
 import (
-	"encoding/json"
+	"radio_site/libs/appstate"
 	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
-	"radio_site/libs/myfile"
 	"radio_site/libs/myhelper"
 	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
-	"strings"
-	"sync/atomic"
 
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -88,6 +88,7 @@ func holdingClientsToString() string {
 	return builder.String()
 }
 
+// TODO: do on appstate
 func applyHeldButtons(statuses []byte) []byte {
 	ButtonsHeld.Range(func(key, value any) bool {
 		pin := key.(int)
@@ -151,10 +152,10 @@ func removeClient(client *mystruct.Client) {
 		usersHolding := holdingClientsToString()
 		broadcast([]byte(holdingCommandPrefix + usersHolding))
 
-		statuses := myfile.ReadPinStatuses()
-		if statuses == nil {
-			return false
-		}
+		state := appstate.Get()
+		defer state.Release()
+
+		statuses := state.PinStates.ToByteSlice()
 		broadcast(applyHeldButtons(statuses))
 
 		return false
@@ -246,10 +247,10 @@ func readMessages(client *mystruct.Client) {
 
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 
-	statuses := myfile.ReadPinStatuses()
-	if statuses == nil {
-		return
-	}
+	state := appstate.Get()
+	statuses := state.PinStates.ToByteSlice()
+	state.Release()
+
 	client.Send <- applyHeldButtons(statuses)
 
 	usersHolding := holdingClientsToString()
@@ -315,19 +316,17 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		modes := myfile.ReadPinModes()
-		isToggleButton := modes[pin] == 'T'
-
+		state := appstate.GetWritable()
 		var statuses []byte
 
+		isToggleButton := myconfig.Get().GetButtonByPin(pin).IsToggle
+
 		if !isToggleButton {
-			statuses = myfile.ReadPinStatuses()
-			if statuses == nil {
-				return
-			}
+			statuses = state.PinStates.ToByteSlice()
 
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
 			if value != client { // if button is not held by requesting user, deny it
+				state.Release()
 				continue
 			}
 			if loaded { // if button already held by requesting user, release it
@@ -337,11 +336,11 @@ func readMessages(client *mystruct.Client) {
 			usersHolding := holdingClientsToString()
 			broadcast([]byte(holdingCommandPrefix + usersHolding))
 		} else {
-			statuses = myhelper.TogglePinStatus(pin)
-			if statuses == nil {
-				return
-			}
+			state.PinStates.TogglePinStatus(pin)
+			state.PinStates.ToByteSlice()
 		}
+
+		state.Release()
 
 		applyHeldButtons(statuses)
 		myparallel.WritePort(statuses)

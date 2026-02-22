@@ -2,6 +2,7 @@
     --bg-color: #252525;
     --font-color: #eeeeee;
     --border-color: #4b4b4b;
+    --border2-color: #6e6e6e;
     --button-color: #2a2a2a;
     --button-hover-color: #2f2f2f;
     --on-color: #2eff55;
@@ -82,16 +83,19 @@ body {
     width: 100%;
     display: flex;
     justify-content: space-between;
-    margin-top: 10px;
+    margin-top: 1rem;
     flex-wrap: wrap;
     flex-direction: row;
+    border: 2px dashed var(--border2-color);
+    gap: 1rem;
+    box-sizing: border-box;
 }
 
 .segments > div {
     flex: 1;
-    margin: 0 10px;
     border: 2px solid var(--border-color);
     position: relative;
+    box-sizing: border-box;
 }
 
 @media (max-width: 767px) {
