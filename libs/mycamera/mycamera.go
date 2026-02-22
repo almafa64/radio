@@ -1,13 +1,14 @@
 package mycamera
 
 import (
-	"context"
-	"log"
 	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
 	"radio_site/libs/myerr"
 	"radio_site/libs/mystruct"
 	"radio_site/libs/mywebsocket"
+
+	"context"
+	"log"
 	"strconv"
 	"strings"
 	"time"
