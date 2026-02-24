@@ -312,14 +312,19 @@ func readMessages(client *mystruct.Client) {
 
 		// check if message is number and in range of max pin number
 		pin, err := strconv.Atoi(string(message))
-		if err != nil || pin >= myconfig.GetButtonCount() {
+		if err != nil || pin >= myconfig.Get().GetButtonCount() {
 			continue
 		}
 
+		button := myconfig.Get().GetButtonByPin(pin)
+		if button == nil {
+			continue
+		}
+
+		isToggleButton := button.IsToggle
+
 		state := appstate.GetWritable()
 		var statuses []byte
-
-		isToggleButton := myconfig.Get().GetButtonByPin(pin).IsToggle
 
 		if !isToggleButton {
 			statuses = state.PinStates.ToByteSlice()

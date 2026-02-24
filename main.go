@@ -40,7 +40,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if myconfig.GetButtonCount() > 63 || myconfig.GetButtonCount() < 1 {
+	if myconfig.Get().GetButtonCount() > 63 || myconfig.Get().GetButtonCount() < 1 {
 		log.Fatalln("There cannot be more buttons than 63, nor less than 1")
 	}
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log"
 	"os"
-
-	"github.com/samber/lo"
+	"sync"
+	"sync/atomic"
 )
 
 const CONFIG_FILE_PATH = "config.json"
@@ -99,41 +99,6 @@ type CameraModule struct {
 	Format     string
 }
 
-// TODO: (c *Config)
-func GetButtonCount() int {
-	return len(globalConfig.GetAllButton())
-}
-
-// TODO: make dirty modifier and cache count
-func (c *Config) GetAllButton() []Button {
-	buttons := make([]Button, 0)
-
-	for _, segment := range c.Segments {
-		for _, module := range segment {
-			if v, ok := module.(ButtonModule); ok {
-				buttons = append(buttons, v.Buttons...)
-			}
-		}
-	}
-
-	return buttons
-}
-
-// TODO: make dirty modifier and cache buttons
-func (c *Config) GetButtonByPin(pin int) *Button {
-	for _, segment := range c.Segments {
-		for _, module := range segment {
-			if v, ok := module.(ButtonModule); ok {
-				if v, ok := lo.Find(v.Buttons, func(e Button) bool { return int(e.Pin) == pin }); ok {
-					return &v
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 var defaultConfig = Config{
 	WebPort: 8080,
 	Features: Features{
@@ -143,6 +108,55 @@ var defaultConfig = Config{
 	},
 	StateFilePath: "state.json",
 	Segments:      Segments{},
+}
+
+var (
+	buttons     sync.Map
+	buttonCount atomic.Int64 // sync.Map doesnt have any len function
+)
+
+func (c *Config) RescanButtons() {
+	buttons.Clear()
+	buttonCount.Store(0)
+
+	for _, segment := range c.Segments {
+		for _, module := range segment {
+			if v, ok := module.(ButtonModule); ok {
+				for _, button := range v.Buttons {
+					buttons.Store(button.Pin, button)
+					buttonCount.Add(1)
+				}
+			}
+		}
+	}
+}
+
+func (*Config) GetButtonCount() int {
+	return int(buttonCount.Load())
+}
+
+func (c *Config) GetAllButton() []Button {
+	tmp := make([]Button, buttonCount.Load())
+
+	i := 0
+	buttons.Range(func(key, value any) bool {
+		tmp[i] = value.(Button)
+		i += 1
+		return true
+	})
+
+	return tmp
+}
+
+func (c *Config) GetButtonByPin(pin int) *Button {
+	button, _ := buttons.Load(uint64(pin))
+
+	if button == nil {
+		return nil
+	}
+
+	tmp := button.(Button)
+	return &tmp
 }
 
 var ErrConfigNotFound = errors.New("no config files found")
@@ -171,6 +185,7 @@ func Load() error {
 	err := json.Unmarshal(contents, config)
 
 	globalConfig = config
+	config.RescanButtons()
 
 	return err
 }
