@@ -337,7 +337,7 @@ func readMessages(client *mystruct.Client) {
 			broadcast([]byte(holdingCommandPrefix + usersHolding))
 		} else {
 			state.PinStates.TogglePinStatus(pin)
-			state.PinStates.ToByteSlice()
+			statuses = state.PinStates.ToByteSlice()
 		}
 
 		state.Release()
