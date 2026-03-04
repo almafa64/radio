@@ -52,8 +52,8 @@ const holding_buttons = {};
 var user_list;
 /** @type {HTMLSpanElement} */
 var user_count_span;
-/** @type {HTMLButtonElement[]} */
-var buttons;
+/** @type {{[number]: HTMLButtonElement}} */
+var buttons = {};
 
 /** @type {Object<number, CanvasRenderingContext2D>} */
 const cameras = {};
@@ -149,7 +149,7 @@ function holding_change_event(users) {
         user_button_pairs[tmp[1]] = tmp[0]
     }
 
-    for(const button of buttons)
+    for(const button of Object.values(buttons))
     {
         for(const p of button.querySelectorAll("p"))
         {
@@ -187,6 +187,7 @@ function pin_status_change_event(data) {
 function add_button_module(module, module_div) {
     module_div.classList.value = "buttons";
     module_div.innerHTML = "";
+    
     for(const button of module.Buttons) {
         const button_elem = create_button(button.Name, button.Pin, (button.Default == -1) ? 1 : button.IsToggle);
         button_elem.classList.value = get_button_class((button.Default == -1) ? "-" : button.Default);
@@ -270,7 +271,9 @@ function page_scheme_event(data) {
         module.remove()
     }
 
-    buttons = document.querySelectorAll(".buttons button");
+    for(const button of document.querySelectorAll(".buttons button")) {
+        buttons[button.dataset.pin] = button;
+    }
 }
 
 /**
@@ -446,7 +449,7 @@ function enter_editor() {
     if(in_editor) return;
     in_editor = true;
 
-    for(const button of buttons)
+    for(const button of Object.values(buttons))
     {
         /** @type {HTMLButtonElement} */
         const editor_but = button.cloneNode(false);
@@ -468,9 +471,11 @@ function exit_editor() {
     {
         button.remove();
     }
-    for(const button of buttons)
+    
+    for(const button of Object.values(buttons))
     {
         button.hidden = false;
     }
+
     editor_buttons = []
 }

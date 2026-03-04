@@ -4,7 +4,6 @@ import (
 	"radio_site/libs/appstate"
 	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
-	"radio_site/libs/myhelper"
 	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
 
@@ -88,16 +87,6 @@ func holdingClientsToString() string {
 	return builder.String()
 }
 
-// TODO: do on appstate
-func applyHeldButtons(statuses []byte) []byte {
-	ButtonsHeld.Range(func(key, value any) bool {
-		pin := key.(int)
-		myhelper.InvertStatusByte(statuses, pin)
-		return true
-	})
-	return statuses
-}
-
 func frameSender(client *mystruct.Client) {
 	for prepMessage := range client.PrepMessageQueue {
 		client.ConnLock.Lock()
@@ -148,16 +137,19 @@ func removeClient(client *mystruct.Client) {
 			return true
 		}
 
-		ButtonsHeld.Delete(key)
+		pin := key.(int)
+
+		ButtonsHeld.Delete(pin)
 		usersHolding := holdingClientsToString()
 		broadcast([]byte(holdingCommandPrefix + usersHolding))
 
-		state := appstate.Get()
-		defer state.Release()
+		state := appstate.GetWritable()
 
-		statuses := state.PinStates.ToByteSlice()
-		broadcast(applyHeldButtons(statuses))
+		state.PinStates.TogglePinStatus(pin)
 
+		broadcastPins(state.PinStates)
+
+		state.Release()
 		return false
 	})
 
@@ -168,6 +160,10 @@ func removeClient(client *mystruct.Client) {
 	if editorClient == client {
 		setEditor(nil)
 	}
+}
+
+func broadcastPins(pin_states appstate.PinStates) {
+	broadcast(pin_states.ToByteSlice())
 }
 
 func broadcast(text []byte) {
@@ -251,7 +247,7 @@ func readMessages(client *mystruct.Client) {
 	statuses := state.PinStates.ToByteSlice()
 	state.Release()
 
-	client.Send <- applyHeldButtons(statuses)
+	client.Send <- statuses
 
 	usersHolding := holdingClientsToString()
 	client.Send <- []byte(holdingCommandPrefix + usersHolding)
@@ -310,9 +306,9 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		// check if message is number and in range of max pin number
+		// check if message is number
 		pin, err := strconv.Atoi(string(message))
-		if err != nil || pin >= myconfig.Get().GetButtonCount() {
+		if err != nil {
 			continue
 		}
 
@@ -323,32 +319,28 @@ func readMessages(client *mystruct.Client) {
 
 		isToggleButton := button.IsToggle
 
-		state := appstate.GetWritable()
-		var statuses []byte
-
 		if !isToggleButton {
-			statuses = state.PinStates.ToByteSlice()
-
 			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
+
 			if value != client { // if button is not held by requesting user, deny it
-				state.Release()
 				continue
 			}
+
 			if loaded { // if button already held by requesting user, release it
 				ButtonsHeld.Delete(pin)
 			}
 
 			usersHolding := holdingClientsToString()
 			broadcast([]byte(holdingCommandPrefix + usersHolding))
-		} else {
-			state.PinStates.TogglePinStatus(pin)
-			statuses = state.PinStates.ToByteSlice()
 		}
 
-		state.Release()
+		state := appstate.GetWritable()
 
-		applyHeldButtons(statuses)
-		myparallel.WritePort(statuses)
-		broadcast(statuses)
+		state.PinStates.TogglePinStatus(pin)
+
+		myparallel.WritePort(state.PinStates)
+		broadcastPins(state.PinStates)
+
+		state.Release()
 	}
 }

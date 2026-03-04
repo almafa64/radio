@@ -14,6 +14,8 @@ import (
 
 var WriteError = errors.New("state isn't locked for writing")
 
+// TODO: make wrap for push buttons to store client (remove from marshalling)
+
 type PinStates map[int]bool
 
 type State struct {
@@ -36,13 +38,17 @@ func (c *PinStates) ToByteSlice() []byte {
 	return status
 }
 
-func (c *PinStates) TogglePinStatus(pin int) error {
+func (c *PinStates) SetPinStatusTo(pin int, enabled bool) error {
 	if !locked_for_write {
 		return WriteError
 	}
 
-	(*c)[pin] = !(*c)[pin]
+	(*c)[pin] = enabled
 	return nil
+}
+
+func (c *PinStates) TogglePinStatus(pin int) error {
+	return c.SetPinStatusTo(pin, !(*c)[pin])
 }
 
 var file_lock = new(sync.Mutex)
@@ -92,6 +98,7 @@ func (*State) Save() error {
 	return os.WriteFile(myconfig.Get().StateFilePath, data, os.FileMode(0o644))
 }
 
+// TODO: dont let 2+ button have same pin
 func Load() error {
 	file_lock.Lock()
 	defer file_lock.Unlock()
@@ -111,6 +118,13 @@ func Load() error {
 
 	if err := json.Unmarshal(data, state); err != nil {
 		return err
+	}
+
+	// set push buttons state to their default (cannot be pushed at boot)
+	for _, button := range myconfig.Get().GetAllButton() {
+		if !button.IsToggle {
+			state.PinStates[int(button.Pin)] = button.Default == 1
+		}
 	}
 
 	state_lock.Lock()
