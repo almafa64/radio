@@ -95,24 +95,51 @@ func frameSender(client *mystruct.Client) {
 	}
 }
 
-func setEditor(client *mystruct.Client) {
-	if client == nil {
-		editorClient = nil
-		broadcast([]byte(editorCommandPrefix))
-		return
-	}
-
-	editorClient = client
-	broadcast([]byte(editorCommandPrefix + client.Name))
+func broadcastPins(pin_states appstate.PinStates) {
+	broadcast(pin_states.ToByteSlice())
 }
 
-func JSONEventMaker[T any](data T, eventName string) []byte {
+func createUserEvent() []byte {
+	users := clientsToString()
+	return []byte(userListCommandPrefix + users)
+}
+
+func createJSONEvent[T any](data T, eventName string) []byte {
 	out, err := json.Marshal(wrap[T]{eventName, data})
+	
 	if err != nil {
 		log.Printf("%v", err)
 		return nil
 	}
+
 	return append([]byte(jsonCommandPrefix), out...)
+}
+
+func createHolderEvent() []byte {
+	users := holdingClientsToString()
+	return []byte(holdingCommandPrefix + users)
+}
+
+func createEditorEvent(editor_name string) []byte {
+	return []byte(editorCommandPrefix + editor_name)
+}
+
+func broadcast(data []byte) {
+	Clients.Range(func(key, value any) bool {
+		key.(*mystruct.Client).Send <- data
+		return true
+	})
+}
+
+func setEditor(client *mystruct.Client) {
+	if client == nil {
+		editorClient = nil
+		broadcast(createEditorEvent(""))
+		return
+	}
+
+	editorClient = client
+	broadcast(createEditorEvent(client.Name))
 }
 
 func addClient(client *mystruct.Client) {
@@ -126,11 +153,12 @@ func addClient(client *mystruct.Client) {
 
 func removeClient(client *mystruct.Client) {
 	Clients.Delete(client)
-	users := clientsToString()
 	ClientCount.Add(-1)
 
 	client.Conn.Close()
 	close(client.PrepMessageQueue)
+
+	broadcast(createUserEvent())
 
 	ButtonsHeld.Range(func(key, value any) bool {
 		if value != client {
@@ -140,8 +168,7 @@ func removeClient(client *mystruct.Client) {
 		pin := key.(int)
 
 		ButtonsHeld.Delete(pin)
-		usersHolding := holdingClientsToString()
-		broadcast([]byte(holdingCommandPrefix + usersHolding))
+		broadcast(createHolderEvent())
 
 		state := appstate.GetWritable()
 
@@ -155,22 +182,9 @@ func removeClient(client *mystruct.Client) {
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, ClientCount.Load())
 
-	broadcast([]byte(userListCommandPrefix + users))
-
 	if editorClient == client {
 		setEditor(nil)
 	}
-}
-
-func broadcastPins(pin_states appstate.PinStates) {
-	broadcast(pin_states.ToByteSlice())
-}
-
-func broadcast(text []byte) {
-	Clients.Range(func(key, value any) bool {
-		key.(*mystruct.Client).Send <- text
-		return true
-	})
 }
 
 func WsHandler(res http.ResponseWriter, req *http.Request) {
@@ -239,7 +253,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	client.Send <- JSONEventMaker(myconfig.Get().Segments, "page_scheme")
+	client.Send <- createJSONEvent(myconfig.Get().Segments, "page_scheme")
 
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 
@@ -248,15 +262,12 @@ func readMessages(client *mystruct.Client) {
 	state.Release()
 
 	client.Send <- statuses
+	client.Send <- createHolderEvent()
 
-	usersHolding := holdingClientsToString()
-	client.Send <- []byte(holdingCommandPrefix + usersHolding)
-
-	users := clientsToString()
-	broadcast([]byte(userListCommandPrefix + users))
+	broadcast(createUserEvent())
 
 	if editorClient != nil {
-		client.Send <- []byte(editorCommandPrefix + editorClient.Name)
+		client.Send <- createEditorEvent(editorClient.Name)
 	}
 
 	for {
@@ -330,8 +341,7 @@ func readMessages(client *mystruct.Client) {
 				ButtonsHeld.Delete(pin)
 			}
 
-			usersHolding := holdingClientsToString()
-			broadcast([]byte(holdingCommandPrefix + usersHolding))
+			broadcast(createHolderEvent())
 		}
 
 		state := appstate.GetWritable()
