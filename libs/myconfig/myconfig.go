@@ -3,10 +3,13 @@ package myconfig
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/samber/lo"
 )
 
 const CONFIG_FILE_PATH = "config.json"
@@ -123,8 +126,9 @@ func (c *Config) RescanButtons() {
 		for _, module := range segment {
 			if v, ok := module.(ButtonModule); ok {
 				for _, button := range v.Buttons {
-					buttons.Store(button.Pin, button)
-					buttonCount.Add(1)
+					if _, loaded := buttons.LoadOrStore(button.Pin, button); !loaded {
+						buttonCount.Add(1)
+					}
 				}
 			}
 		}
@@ -160,6 +164,7 @@ func (c *Config) GetButtonByPin(pin int) *Button {
 }
 
 var ErrConfigNotFound = errors.New("no config files found")
+var DuplicatedPinError = errors.New("duplicated use of same pin number")
 
 func Load() error {
 	var contents []byte
@@ -182,12 +187,27 @@ func Load() error {
 	}
 
 	config := new(Config)
-	err := json.Unmarshal(contents, config)
+	if err := json.Unmarshal(contents, config); err != nil {
+		return err
+	}
 
-	globalConfig = config
+	for _, segment := range config.Segments {
+		for _, module := range segment {
+			if v, ok := module.(ButtonModule); ok {
+				duplicated_pins := lo.FindDuplicates(lo.Map(v.Buttons, func(t Button, _ int) uint64 { return t.Pin }))
+
+				if len(duplicated_pins) > 0 {
+					return fmt.Errorf("error on pins %v: %w", duplicated_pins, DuplicatedPinError)
+				}
+			}
+		}
+	}
+
 	config.RescanButtons()
 
-	return err
+	globalConfig = config
+
+	return nil
 }
 
 func Save(config *Config, path string) error {

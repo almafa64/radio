@@ -98,7 +98,6 @@ func (*State) Save() error {
 	return os.WriteFile(myconfig.Get().StateFilePath, data, os.FileMode(0o644))
 }
 
-// TODO: dont let 2+ button have same pin
 func Load() error {
 	file_lock.Lock()
 	defer file_lock.Unlock()
