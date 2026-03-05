@@ -84,8 +84,8 @@ function users_popup() {
  */
 function get_button_class(button_status) {
 	switch (button_status) {
-		case "0": return "off";
-		case "1": return "on";
+		case "0": case 0: return "off";
+		case "1": case 1: return "on";
 		case "-": return "";
 		default: throw new Error("no such character: " + button_status);
 	}
@@ -469,7 +469,7 @@ function enter_editor() {
 	for (const button of Object.values(buttons)) {
 		/** @type {HTMLButtonElement} */
 		const editor_but = button.cloneNode(false);
-		
+
 		button.hidden = true;
 		editor_buttons.push(editor_but);
 		button.parentElement.appendChild(editor_but);
