@@ -166,15 +166,15 @@ function holding_change_event(users) {
     }
 }
 
-// TODO: extend for >9 pin numbers
 /**
- * @param {string} data
+ * @param {string} statuses
  */
-function pin_status_change_event(data) {
-    for(var i = 0; i < data.length; i++)
+function pin_status_change_event(statuses) {
+    for(var i = 0; i < statuses.length; i++)
     {
-        if(data[i] == '\0') continue;
-        buttons[i].classList = get_button_class(data[i]);
+        const status = statuses[i];
+        if(status == '\0') continue;
+        buttons[i].classList = get_button_class(status);
     }
 }
 
@@ -190,12 +190,14 @@ function add_button_module(module, module_div) {
     
     for(const button of module.Buttons) {
         const button_elem = create_button(button.Name, button.Pin, (button.Default == -1) ? 1 : button.IsToggle);
+
         button_elem.classList.value = get_button_class((button.Default == -1) ? "-" : button.Default);
-        module_div.appendChild(button_elem);
         button_elem.dataset.default = button.Default
         button_elem.dataset.isToggle = (button.Default == -1) ? 1 : button.IsToggle
         button_elem.dataset.name = button.Name
         button_elem.dataset.pin = button.Pin
+
+        module_div.appendChild(button_elem);
     }
 }
 
@@ -205,12 +207,25 @@ function add_button_module(module, module_div) {
  */
 function add_camera_module(module, module_div, camera_id) {
     module_div.classList.value = "";
+
     var canvas = module_div.querySelector("canvas");
     if (!canvas) {
         module_div.innerHTML = `<canvas id="video${camera_id}"></canvas><p></p>`;
         canvas = module_div.querySelector("canvas");
-        cameras[camera_id] = canvas.getContext("2d");
+
+        const ctx = canvas.getContext("2d");
+        cameras[camera_id] = ctx;
+
+        canvas.dataset.interval_id = setInterval(() => {
+            if(!canvas.dataset.last_updated) return;
+
+            if(Date.now() - canvas.dataset.last_updated > 1000) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.dataset.last_updated = undefined;
+            }
+        }, 1000);
     }
+
     module_div.querySelector("p").innerText = module.Name;
     canvas.dataset.format = module.Format
     canvas.dataset.fps = module.Fps
@@ -218,6 +233,9 @@ function add_camera_module(module, module_div, camera_id) {
     canvas.dataset.device = module.Device
     canvas.dataset.resolution = module.Resolution
     canvas.dataset.type = module.Type
+
+    canvas.dataset.last_updated = 0;
+    canvas.dataset.can_receive_frame = true;
 }
 
 /**
@@ -355,9 +373,6 @@ window.onload = () => {
         const data = event.data;
 
         if(data instanceof ArrayBuffer) {
-            if(!can_receive_frame) return;
-            can_receive_frame = false;
-
             let view = new DataView(data);
             let id = view.getUint8(0);
 
@@ -371,20 +386,24 @@ window.onload = () => {
             let ctx = cameras[id];
             let canvas = ctx.canvas;
 
+            if(canvas.dataset.can_receive_frame == "false") return;
+            canvas.dataset.can_receive_frame = false;
+
             // TODO: use attribute "format"
             const blob = new Blob([data.slice(1)], { type: 'image/jpeg' });
 
-            // TODO: clear image after not reciving frames for x time
             createImageBitmap(blob)
                 .then(img => {
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
-                    can_receive_frame = true;
+
+                    canvas.dataset.can_receive_frame = true;
+                    canvas.dataset.last_updated = Date.now()
                 })
                 .catch(err => {
                     console.error("failed to decode frame: ", err);
-                    can_receive_frame = true;
+                    canvas.dataset.can_receive_frame = true;
                 });
             return;
         }
