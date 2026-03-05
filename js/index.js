@@ -64,30 +64,31 @@ var my_name = "";
  * @param {HTMLButtonElement} button
  * @param {number} number
  */
-function pressed(button, number)
-{
-    if(button.classList == "") return;
-    socket.send(number);
+function pressed(button, number) {
+	if (button.classList == "") return;
+
+	socket.send(number);
 }
 
 function users_popup() {
-    if(user_list.hidden) {
-        user_list.hidden = false;
-        return;
-    }
-    user_list.hidden = true;
+	if (user_list.hidden) {
+		user_list.hidden = false;
+		return;
+	}
+
+	user_list.hidden = true;
 }
 
 /**
  * @param {string} button_status
  */
-function get_button_class(button_status)
-{
-    if(button_status == "0") return "off";
-    if(button_status == "1") return "on";
-    if(button_status == "-") return "";
-
-    throw new Error("no such character: " + button_status);
+function get_button_class(button_status) {
+	switch (button_status) {
+		case "0": return "off";
+		case "1": return "on";
+		case "-": return "";
+		default: throw new Error("no such character: " + button_status);
+	}
 }
 
 // -------- Events --------
@@ -96,86 +97,82 @@ function get_button_class(button_status)
  * @param {string} data
  */
 function parse_data(data) {
-    const text = data.slice(1);
-    const values = text.split(",");
-    if(values[values.length - 1] == '') values.pop(); // remove last empty entry
-    return values
+	const text = data.slice(1);
+	const values = text.split(",");
+
+	if (values[values.length - 1] == "") values.pop(); // remove last empty entry
+
+	return values;
 }
 
 /**
  * @param {string[]} users
  */
 function users_change_event(users) {
-    user_count_span.innerText = users.length;
-    user_list.innerHTML = "";
-    for(const user of users)
-    {
-        const li = document.createElement("li");
-        li.innerText = user;
-        user_list.appendChild(li);
-        if(user == my_name) {
-            li.style.backgroundColor = "green";
-        }
-    }
+	user_count_span.innerText = users.length;
+	user_list.innerHTML = "";
+
+	for (const user of users) {
+		const li = document.createElement("li");
+
+		li.innerText = user;
+		if (user == my_name)
+			li.style.backgroundColor = "green";
+
+		user_list.appendChild(li);
+	}
 }
 
 /**
  * @param {string} name
  */
 function editor_user_change_event(name) {
-    /** @type {HTMLButtonElement} */
-    const editor_but = document.getElementById("editor_but");
+	/** @type {HTMLButtonElement} */
+	const editor_but = document.getElementById("editor_but");
 
-    editor_but.disabled = false;
-    document.getElementById("current_editor_span").innerText = name || "";
+	editor_but.disabled = false;
+	document.getElementById("current_editor_span").innerText = name || "";
 
-    if(name == undefined)
-        exit_editor();
-    else if(name == my_name)
-        enter_editor();
-    else
-        editor_but.disabled = true;
+	if (name == undefined) exit_editor();
+	else if (name == my_name) enter_editor();
+	else editor_but.disabled = true;
 }
 
 /**
  * @param {string[]} users
  */
 function holding_change_event(users) {
-    const user_button_pairs = [];
+	const user_button_pairs = [];
 
-    for(const user of users)
-    {
-        const tmp = user.split(";")
-        user_button_pairs[tmp[1]] = tmp[0]
-    }
+	for (const user of users) {
+		const tmp = user.split(";");
+		user_button_pairs[tmp[1]] = tmp[0];
+	}
 
-    for(const button of Object.values(buttons))
-    {
-        for(const p of button.querySelectorAll("p"))
-        {
-            button.removeChild(p);
-        }
+	for (const button of Object.values(buttons)) {
+		for (const p of button.querySelectorAll("p")) {
+			button.removeChild(p);
+		}
 
-        const user = user_button_pairs[button.dataset.pin];
-        if(user !== undefined)
-        {
-            const p = document.createElement("p");
-            button.appendChild(p);
-            p.innerText = user;
-        }
-    }
+		const user = user_button_pairs[button.dataset.pin];
+		if (user !== undefined) {
+			const p = document.createElement("p");
+			p.innerText = user;
+			button.appendChild(p);
+		}
+	}
 }
 
 /**
  * @param {string} statuses
  */
 function pin_status_change_event(statuses) {
-    for(var i = 0; i < statuses.length; i++)
-    {
-        const status = statuses[i];
-        if(status == '\0') continue;
-        buttons[i].classList = get_button_class(status);
-    }
+	for (var i = 0; i < statuses.length; i++) {
+		const status = statuses[i];
+
+		if (status == "\0") continue;
+		buttons[i].classList = get_button_class(status);
+	}
 }
 
 // -------- JSON events --------
@@ -185,274 +182,275 @@ function pin_status_change_event(statuses) {
  * @param {HTMLDivElement} module_div
  */
 function add_button_module(module, module_div) {
-    module_div.classList.value = "buttons";
-    module_div.innerHTML = "";
-    
-    for(const button of module.Buttons) {
-        const button_elem = create_button(button.Name, button.Pin, (button.Default == -1) ? 1 : button.IsToggle);
+	module_div.classList.value = "buttons";
+	module_div.innerHTML = "";
 
-        button_elem.classList.value = get_button_class((button.Default == -1) ? "-" : button.Default);
-        button_elem.dataset.default = button.Default
-        button_elem.dataset.isToggle = (button.Default == -1) ? 1 : button.IsToggle
-        button_elem.dataset.name = button.Name
-        button_elem.dataset.pin = button.Pin
+	for (const button of module.Buttons) {
+		const button_elem = create_button(button.Name, button.Pin, (button.Default == -1) ? 1 : button.IsToggle);
 
-        module_div.appendChild(button_elem);
-    }
+		button_elem.classList.value = get_button_class((button.Default == -1) ? "-" : button.Default);
+		button_elem.dataset.default = button.Default;
+		button_elem.dataset.isToggle = (button.Default == -1) ? 1 : button.IsToggle;
+		button_elem.dataset.name = button.Name;
+		button_elem.dataset.pin = button.Pin;
+
+		module_div.appendChild(button_elem);
+	}
 }
 
 /**
- * @param {CameraModule} module 
+ * @param {CameraModule} module
  * @param {HTMLDivElement} module_div
  */
 function add_camera_module(module, module_div, camera_id) {
-    module_div.classList.value = "";
+	module_div.classList.value = "";
 
-    var canvas = module_div.querySelector("canvas");
-    if (!canvas) {
-        module_div.innerHTML = `<canvas id="video${camera_id}"></canvas><p></p>`;
-        canvas = module_div.querySelector("canvas");
+	var canvas = module_div.querySelector("canvas");
+	if (!canvas) {
+		module_div.innerHTML = `<canvas id="video${camera_id}"></canvas><p></p>`;
+		canvas = module_div.querySelector("canvas");
 
-        const ctx = canvas.getContext("2d");
-        cameras[camera_id] = ctx;
+		const ctx = canvas.getContext("2d");
+		cameras[camera_id] = ctx;
 
-        canvas.dataset.interval_id = setInterval(() => {
-            if(!canvas.dataset.last_updated) return;
+		canvas.dataset.interval_id = setInterval(() => {
+			if (!canvas.dataset.last_updated) return;
 
-            if(Date.now() - canvas.dataset.last_updated > 1000) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                canvas.dataset.last_updated = undefined;
-            }
-        }, 1000);
-    }
+			if (Date.now() - canvas.dataset.last_updated > 1000) {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				canvas.dataset.last_updated = undefined;
+			}
+		}, 1000);
+	}
 
-    module_div.querySelector("p").innerText = module.Name;
-    canvas.dataset.format = module.Format
-    canvas.dataset.fps = module.Fps
-    canvas.dataset.name = module.Name
-    canvas.dataset.device = module.Device
-    canvas.dataset.resolution = module.Resolution
-    canvas.dataset.type = module.Type
+	module_div.querySelector("p").innerText = module.Name;
+	canvas.dataset.format = module.Format;
+	canvas.dataset.fps = module.Fps;
+	canvas.dataset.name = module.Name;
+	canvas.dataset.device = module.Device;
+	canvas.dataset.resolution = module.Resolution;
+	canvas.dataset.type = module.Type;
 
-    canvas.dataset.last_updated = 0;
-    canvas.dataset.can_receive_frame = true;
+	canvas.dataset.last_updated = 0;
+	canvas.dataset.can_receive_frame = true;
 }
 
 /**
- * @param {PageSchemeData} data 
+ * @param {PageSchemeData} data
  */
 function page_scheme_event(data) {
-    window.onblur(); // clear all held buttons
+	window.onblur(); // clear all held buttons
 
-    var camera_counter = 0;
+	var camera_counter = 0;
 
-    var remove_segments = [...document.getElementsByClassName("segments")];
-    var remove_modules = [...document.querySelectorAll(".segments > div")];
+	var remove_segments = [...document.getElementsByClassName("segments")];
+	var remove_modules = [...document.querySelectorAll(".segments > div")];
 
-    for(const segment_idx in data) {
-        const segment = data[segment_idx];
-        let id = `segment${segment_idx}`;
-        let segment_div = document.getElementById(id);
-        if (!segment_div) {
-            segment_div = document.createElement("div");
-            segment_div.id = id;
-            segment_div.classList.value = "segments";
-            document.body.appendChild(segment_div);
-        } else {
-            remove_segments = remove_segments.filter(v => v !== segment_div)
-        }
-        
-        for(const module_idx in segment) {
-            const module = segment[module_idx];
-            id = `module${segment_idx}-${module_idx}`;
-            let module_div = document.getElementById(id);
-            if (!module_div) {
-                module_div = document.createElement("div");
-                module_div.id = id;
-                segment_div.appendChild(module_div);
-            } else {
-                remove_modules = remove_modules.filter(v => v !== module_div)
-            }
+	for (const segment_idx in data) {
+		const segment = data[segment_idx];
+		let id = `segment${segment_idx}`;
+		let segment_div = document.getElementById(id);
 
-            switch (module.Type) {
-                case "buttons": add_button_module(module, module_div); break;
-                case "cam":     add_camera_module(module, module_div, camera_counter); camera_counter++; break;
-            }
-        }
-    }
+		if (!segment_div) {
+			segment_div = document.createElement("div");
+			segment_div.id = id;
+			segment_div.classList.value = "segments";
+			document.body.appendChild(segment_div);
+		} else {
+			remove_segments = remove_segments.filter((v) => v !== segment_div);
+		}
 
-    for(const segment of remove_segments) {
-        segment.remove()
-    }
+		for (const module_idx in segment) {
+			const module = segment[module_idx];
+			id = `module${segment_idx}-${module_idx}`;
+			let module_div = document.getElementById(id);
 
-    for(const module of remove_modules) {
-        module.remove()
-    }
+			if (!module_div) {
+				module_div = document.createElement("div");
+				module_div.id = id;
+				segment_div.appendChild(module_div);
+			} else {
+				remove_modules = remove_modules.filter((v) => v !== module_div);
+			}
 
-    for(const button of document.querySelectorAll(".buttons button")) {
-        buttons[button.dataset.pin] = button;
-    }
+			switch (module.Type) {
+				case "buttons":
+					add_button_module(module, module_div);
+					break;
+				case "cam":
+					add_camera_module(module, module_div, camera_counter);
+					camera_counter++;
+					break;
+			}
+		}
+	}
+
+	for (const segment of remove_segments) {
+		segment.remove();
+	}
+
+	for (const module of remove_modules) {
+		module.remove();
+	}
+
+	for (const button of document.querySelectorAll(".buttons button")) {
+		buttons[button.dataset.pin] = button;
+	}
 }
 
 /**
- * @param {string} data 
+ * @param {string} data
  */
 function json_event(data) {
-    data = JSON.parse(data)
-    const event_data = data["Data"];
-    switch(data["Event"]) {
-        case "page_scheme": page_scheme_event(event_data); break;
-    }
+	data = JSON.parse(data);
+	const event_data = data["Data"];
+	switch (data["Event"]) {
+		case "page_scheme":
+			page_scheme_event(event_data);
+			break;
+	}
 }
 
 // -------- Main part --------
 
 /**
- * @param {string} name 
- * @param {number} num 
- * @param {boolean|number} isToggle 
+ * @param {string} name
+ * @param {number} num
+ * @param {boolean|number} isToggle
  * @returns {HTMLButtonElement}
  */
 function create_button(name, num, isToggle) {
-    const button = document.createElement("button");
-    button.innerText = name;
-    button.id = `radio_${num}`;
+	const button = document.createElement("button");
+	button.innerText = name;
+	button.id = `radio_${num}`;
 
-    if(isToggle)
-    {
-        button.onpointerdown = (e) => {
-            if(e.button != 0) return;
+	if (isToggle) {
+		button.onpointerdown = (e) => {
+			if (e.button != 0) return;
 
-            const number = button.dataset.pin;
-            pressed(button, number);
-        }
-    } else {
-        button.onpointerdown = (e) => {
-            if(e.button != 0) return;
+			const number = button.dataset.pin;
+			pressed(button, number);
+		};
+	} else {
+		button.onpointerdown = (e) => {
+			if (e.button != 0) return;
 
-            if(button.querySelector("p") !== null) return;
-            const number = button.dataset.pin;
-            pressed(button, number);
-            holding_buttons[e.pointerId] = number;
-        }
-    }
+			if (button.querySelector("p") !== null) return;
+			const number = button.dataset.pin;
+			pressed(button, number);
+			holding_buttons[e.pointerId] = number;
+		};
+	}
 
-    return button;
+	return button;
 }
 
 // When page goes out of focus, depress all held button
 window.onblur = (e) => {
-    for(const k in holding_buttons)
-    {
-        window.onpointerup({pointerId: k})
-    }
-}
+	for (const k in holding_buttons) {
+		window.onpointerup({ pointerId: k });
+	}
+};
 
 window.onpointerup = window.onpointercancel = (ev) => {
-    const radio_number = holding_buttons[ev.pointerId];
-    if(!radio_number) return;
+	const radio_number = holding_buttons[ev.pointerId];
+	if (!radio_number) return;
 
-    pressed(document.getElementById(`radio_${radio_number}`), radio_number);
-    delete holding_buttons[ev.pointerId];
-}
+	pressed(document.getElementById(`radio_${radio_number}`), radio_number);
+	delete holding_buttons[ev.pointerId];
+};
 
 window.onload = () => {
-    user_list = document.getElementById("users");
-    user_count_span = document.getElementById("user_count");
+	user_list = document.getElementById("users");
+	user_count_span = document.getElementById("user_count");
 
-    var can_receive_frame = true;
+	socket = new WebSocket("ws://" + location.host + "/radio_ws");
+	socket.binaryType = "arraybuffer";
 
-    socket = new WebSocket("ws://" + location.host + "/radio_ws");
-    socket.binaryType = 'arraybuffer';
+	socket.onopen = (event) => {
+		console.log("Connected to WebSocket server.");
+	};
 
-    socket.onopen = (event) => {
-        console.log("Connected to WebSocket server.");
-    };
+	socket.onmessage = (event) => {
+		const data = event.data;
 
-    socket.onmessage = (event) => {
-        const data = event.data;
+		if (data instanceof ArrayBuffer) {
+			let view = new DataView(data);
+			let id = view.getUint8(0);
 
-        if(data instanceof ArrayBuffer) {
-            let view = new DataView(data);
-            let id = view.getUint8(0);
+			if (!(id in cameras)) {
+				/** @type {HTMLCanvasElement} */
+				const canvas = document.getElementById(`video${id}`);
+				if (!canvas) return;
+				cameras[id] = canvas.getContext("2d");
+			}
 
-            if (!(id in cameras)) {
-                /** @type {HTMLCanvasElement} */
-                const canvas = document.getElementById(`video${id}`);
-                if (!canvas) return;
-                cameras[id] = canvas.getContext('2d');
-            }
+			let ctx = cameras[id];
+			let canvas = ctx.canvas;
 
-            let ctx = cameras[id];
-            let canvas = ctx.canvas;
+			if (canvas.dataset.can_receive_frame == "false") return;
+			canvas.dataset.can_receive_frame = false;
 
-            if(canvas.dataset.can_receive_frame == "false") return;
-            canvas.dataset.can_receive_frame = false;
+			// TODO: use attribute "format"
+			const blob = new Blob([data.slice(1)], { type: "image/jpeg" });
 
-            // TODO: use attribute "format"
-            const blob = new Blob([data.slice(1)], { type: 'image/jpeg' });
+			createImageBitmap(blob)
+				.then((img) => {
+					canvas.width = img.width;
+					canvas.height = img.height;
+					ctx.drawImage(img, 0, 0);
 
-            createImageBitmap(blob)
-                .then(img => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
+					canvas.dataset.can_receive_frame = true;
+					canvas.dataset.last_updated = Date.now();
+				})
+				.catch((err) => {
+					console.error("failed to decode frame: ", err);
+					canvas.dataset.can_receive_frame = true;
+				});
+			return;
+		}
 
-                    canvas.dataset.can_receive_frame = true;
-                    canvas.dataset.last_updated = Date.now()
-                })
-                .catch(err => {
-                    console.error("failed to decode frame: ", err);
-                    canvas.dataset.can_receive_frame = true;
-                });
-            return;
-        }
+		console.log("Message from server:", data);
 
-        console.log("Message from server:", data);
+		const command = data[0];
+		const args = parse_data(data);
 
-        const command = data[0];
-        const args = parse_data(data);
+		switch (command) {
+			case user_list_command:
+				if (args[0][0] == "*") my_name = args[0].substring(1);
+				else users_change_event(args);
+				return;
+			case holding_command:
+				holding_change_event(args);
+				return;
+			case editor_command:
+				editor_user_change_event(args[0]);
+				return;
+			case json_command:
+				json_event(args);
+				return;
+		}
 
-        switch (command) {
-            case user_list_command:
-                if(args[0][0] == '*')
-                    my_name = args[0].substring(1)
-                else
-                    users_change_event(args);
-                return;
-            case holding_command:
-                holding_change_event(args);
-                return;
-            case editor_command:
-                editor_user_change_event(args[0]);
-                return;
-            case json_command:
-                json_event(args);
-                return;
-        }
+		/** @type {string} */
+		let statuses = data;
 
-        /** @type {string} */
-        let statuses = data;
-        
-        if(statuses.length != 64)
-        {
-            console.log("wrong length of statuses");
-            return;
-        }
+		if (statuses.length != 64) {
+			console.log("wrong length of statuses");
+			return;
+		}
 
-        pin_status_change_event(statuses);
-    };
+		pin_status_change_event(statuses);
+	};
 
-    socket.onclose = (event) => {
-        alert("Connection closed. Reloading webpage.");
-        window.location.href = window.location.href;
-    };
-}
+	socket.onclose = (event) => {
+		alert("Connection closed. Reloading webpage.");
+		window.location.href = window.location.href;
+	};
+};
 
 // -------- Editor --------
 
 function save_pins() {
-
 }
 
 var in_editor = false;
@@ -461,40 +459,38 @@ var in_editor = false;
 var editor_buttons = [];
 
 function request_editor() {
-    socket.send(editor_command); // send editor access request to server
+	socket.send(editor_command); // send editor access request to server
 }
 
 function enter_editor() {
-    if(in_editor) return;
-    in_editor = true;
+	if (in_editor) return;
+	in_editor = true;
 
-    for(const button of Object.values(buttons))
-    {
-        /** @type {HTMLButtonElement} */
-        const editor_but = button.cloneNode(false);
-        button.hidden = true;
-        editor_buttons.push(editor_but);
-        button.parentElement.appendChild(editor_but);
+	for (const button of Object.values(buttons)) {
+		/** @type {HTMLButtonElement} */
+		const editor_but = button.cloneNode(false);
+		
+		button.hidden = true;
+		editor_buttons.push(editor_but);
+		button.parentElement.appendChild(editor_but);
 
-        editor_but.onclick = () => {
-            // open settings popup
-        }
-    }
+		editor_but.onclick = () => {
+			// open settings popup
+		};
+	}
 }
 
 function exit_editor() {
-    if(!in_editor) return;
-    in_editor = false;
+	if (!in_editor) return;
+	in_editor = false;
 
-    for(const button of editor_buttons)
-    {
-        button.remove();
-    }
-    
-    for(const button of Object.values(buttons))
-    {
-        button.hidden = false;
-    }
+	for (const button of editor_buttons) {
+		button.remove();
+	}
 
-    editor_buttons = []
+	for (const button of Object.values(buttons)) {
+		button.hidden = false;
+	}
+
+	editor_buttons = [];
 }
