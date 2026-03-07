@@ -8,10 +8,11 @@ import (
 
 type Client struct {
 	Conn             *websocket.Conn
-	Send             chan []byte
 	ConnLock         sync.Mutex
+	Send             chan []byte
 	Name             string
 	PrepMessageQueue chan *websocket.PreparedMessage
+	HoldingPinNumber int
 }
 
 func (client *Client) WriteToClient(messageType int, data []byte) error {

@@ -57,7 +57,6 @@ var (
 	editorClient *mystruct.Client
 )
 
-var ButtonsHeld sync.Map
 var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
 
 type wrap[T any] struct {
@@ -67,23 +66,34 @@ type wrap[T any] struct {
 
 func clientsToString() string {
 	var builder strings.Builder
+
 	Clients.Range(func(key, value any) bool {
 		builder.WriteString(key.(*mystruct.Client).Name)
 		builder.WriteByte(',')
 		return true
 	})
+
 	return builder.String()
 }
 
 func holdingClientsToString() string {
 	var builder strings.Builder
-	ButtonsHeld.Range(func(key, value any) bool {
-		builder.WriteString(value.(*mystruct.Client).Name)
+
+	Clients.Range(func(key, value any) bool {
+		client := key.(*mystruct.Client)
+		
+		if client.HoldingPinNumber == -1 {
+			return true
+		}
+
+		builder.WriteString(client.Name)
 		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(key.(int)))
+		builder.WriteString(strconv.Itoa(client.HoldingPinNumber))
 		builder.WriteByte(',')
+		
 		return true
 	})
+
 	return builder.String()
 }
 
@@ -95,8 +105,8 @@ func frameSender(client *mystruct.Client) {
 	}
 }
 
-func broadcastPins(pin_states appstate.PinStates) {
-	broadcast(pin_states.ToByteSlice())
+func createPinEvent(pin_states appstate.PinStates) []byte {
+	return pin_states.ToByteSlice()
 }
 
 func createUserEvent() []byte {
@@ -145,9 +155,12 @@ func setEditor(client *mystruct.Client) {
 func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
+
 	client.Conn.EnableWriteCompression(true)
+
 	go readMessages(client)
 	go frameSender(client)
+
 	log.Printf("%s connected. Total clients: %d", client.Name, ClientCount.Load())
 }
 
@@ -160,25 +173,17 @@ func removeClient(client *mystruct.Client) {
 
 	broadcast(createUserEvent())
 
-	ButtonsHeld.Range(func(key, value any) bool {
-		if value != client {
-			return true
-		}
+	if client.HoldingPinNumber != -1 {
+		pin := client.HoldingPinNumber
 
-		pin := key.(int)
-
-		ButtonsHeld.Delete(pin)
+		client.HoldingPinNumber = -1
 		broadcast(createHolderEvent())
 
 		state := appstate.GetWritable()
-
 		state.PinStates.TogglePinStatus(pin)
-
-		broadcastPins(state.PinStates)
-
+		broadcast(createPinEvent(state.PinStates))
 		state.Release()
-		return false
-	})
+	}
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, ClientCount.Load())
 
@@ -210,6 +215,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 		Send:             make(chan []byte),
 		Name:             name,
 		PrepMessageQueue: make(chan *websocket.PreparedMessage, 5),
+		HoldingPinNumber: -1,
 	}
 
 	addClient(client)
@@ -249,6 +255,9 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 		}
 	}
 }
+
+// TODO: pushing 2 push button fast enough after each other stucks one
+// TODO: 2 client pushing same push buttons stucks it
 
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
@@ -331,14 +340,15 @@ func readMessages(client *mystruct.Client) {
 		isToggleButton := button.IsToggle
 
 		if !isToggleButton {
-			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
-
-			if value != client { // if button is not held by requesting user, deny it
+			// if button is not held by requesting user, deny it
+			if client.HoldingPinNumber != -1 && pin != client.HoldingPinNumber {
 				continue
 			}
 
-			if loaded { // if button already held by requesting user, release it
-				ButtonsHeld.Delete(pin)
+			if client.HoldingPinNumber != -1 { // if button already held by requesting user, release it
+				client.HoldingPinNumber = -1
+			} else {
+				client.HoldingPinNumber = pin
 			}
 
 			broadcast(createHolderEvent())
@@ -349,7 +359,7 @@ func readMessages(client *mystruct.Client) {
 		state.PinStates.TogglePinStatus(pin)
 
 		myparallel.WritePort(state.PinStates)
-		broadcastPins(state.PinStates)
+		broadcast(createPinEvent(state.PinStates))
 
 		state.Release()
 	}
