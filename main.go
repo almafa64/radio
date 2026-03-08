@@ -40,10 +40,6 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if myconfig.Get().GetButtonCount() > 63 || myconfig.Get().GetButtonCount() < 1 {
-		log.Fatalln("There cannot be more buttons than 63, nor less than 1")
-	}
-
 	if err := myparallel.CheckPerm(); err == myparallel.ErrPortAccess {
 		log.Fatalln(err)
 	}

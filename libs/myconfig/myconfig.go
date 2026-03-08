@@ -165,6 +165,7 @@ func (c *Config) GetButtonByPin(pin int) *Button {
 
 var ErrConfigNotFound = errors.New("no config files found")
 var DuplicatedPinError = errors.New("duplicated use of same pin number")
+var PinOutOfRangeError = errors.New("pin number is larger than 63")
 
 func Load() error {
 	var contents []byte
@@ -194,10 +195,14 @@ func Load() error {
 	for _, segment := range config.Segments {
 		for _, module := range segment {
 			if v, ok := module.(ButtonModule); ok {
-				duplicated_pins := lo.FindDuplicates(lo.Map(v.Buttons, func(t Button, _ int) uint64 { return t.Pin }))
+				duplicated_pins := lo.FindDuplicates(lo.Map(v.Buttons, func(b Button, _ int) uint64 { return b.Pin }))
 
 				if len(duplicated_pins) > 0 {
 					return fmt.Errorf("error on pins %v: %w", duplicated_pins, DuplicatedPinError)
+				}
+
+				if but, ok := lo.Find(v.Buttons, func(b Button) bool { return b.Pin >= 64 }); ok {
+					return fmt.Errorf("error on button named '%v': %w", but.Name, PinOutOfRangeError)
 				}
 			}
 		}
