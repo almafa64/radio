@@ -24,7 +24,13 @@ type State struct {
 func (c *PinStates) ToByteSlice() []byte {
 	status := make([]byte, 64)
 
+	config := myconfig.Get()
 	for k, v := range *c {
+		if config.GetButtonByPin(k).Default == -1 {
+			status[k] = '-'
+			continue
+		}
+
 		var c byte = '0'
 		if v {
 			c = '1'
