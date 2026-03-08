@@ -81,7 +81,7 @@ func holdingClientsToString() string {
 
 	Clients.Range(func(key, value any) bool {
 		client := key.(*mystruct.Client)
-		
+
 		if client.HoldingPinNumber == -1 {
 			return true
 		}
@@ -90,7 +90,7 @@ func holdingClientsToString() string {
 		builder.WriteByte(';')
 		builder.WriteString(strconv.Itoa(client.HoldingPinNumber))
 		builder.WriteByte(',')
-		
+
 		return true
 	})
 
@@ -116,7 +116,7 @@ func createUserEvent() []byte {
 
 func createJSONEvent[T any](data T, eventName string) []byte {
 	out, err := json.Marshal(wrap[T]{eventName, data})
-	
+
 	if err != nil {
 		log.Printf("%v", err)
 		return nil
@@ -256,8 +256,8 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// TODO: pushing 2 push button fast enough after each other stucks one
-// TODO: 2 client pushing same push buttons stucks it
+// TODO: pushing 2 push button fast enough after each other stucks one (most likely client-side bug)
+// TODO: 2 client pushing same push buttons stucks it (most likely client-side bug)
 
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
@@ -267,7 +267,7 @@ func readMessages(client *mystruct.Client) {
 	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
 
 	state := appstate.Get()
-	statuses := state.PinStates.ToByteSlice()
+	statuses := createPinEvent(state.PinStates)
 	state.Release()
 
 	client.Send <- statuses
@@ -340,12 +340,30 @@ func readMessages(client *mystruct.Client) {
 		isToggleButton := button.IsToggle
 
 		if !isToggleButton {
+			held_by_other := false
+
 			// if button is not held by requesting user, deny it
-			if client.HoldingPinNumber != -1 && pin != client.HoldingPinNumber {
+			Clients.Range(func(key, value any) bool {
+				client2 := key.(*mystruct.Client)
+
+				if client2.HoldingPinNumber == pin && client2 != client {
+					held_by_other = true
+					return false
+				}
+
+				return true
+			})
+
+			if held_by_other {
 				continue
 			}
 
-			if client.HoldingPinNumber != -1 { // if button already held by requesting user, release it
+			if client.HoldingPinNumber != -1 {
+				if pin != client.HoldingPinNumber { // if requesting user already holds another button, deny it
+					continue
+				}
+
+				// if button already held by requesting user, release it
 				client.HoldingPinNumber = -1
 			} else {
 				client.HoldingPinNumber = pin
