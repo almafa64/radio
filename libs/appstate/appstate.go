@@ -14,8 +14,6 @@ import (
 
 var WriteError = errors.New("state isn't locked for writing")
 
-// TODO: make wrap for push buttons to store client (remove from marshalling)
-
 type PinStates map[int]bool
 
 type State struct {

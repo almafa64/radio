@@ -114,6 +114,10 @@ func createUserEvent() []byte {
 	return []byte(userListCommandPrefix + users)
 }
 
+func createCurrentUserEvent(client *mystruct.Client) []byte {
+	return []byte(userListCommandPrefix + "*" + client.Name)
+}
+
 func createJSONEvent[T any](data T, eventName string) []byte {
 	out, err := json.Marshal(wrap[T]{eventName, data})
 
@@ -264,13 +268,12 @@ func readMessages(client *mystruct.Client) {
 
 	client.Send <- createJSONEvent(myconfig.Get().Segments, "page_scheme")
 
-	client.Send <- []byte(userListCommandPrefix + "*" + client.Name)
+	client.Send <- createCurrentUserEvent(client)
 
 	state := appstate.Get()
-	statuses := createPinEvent(state.PinStates)
+	client.Send <- createPinEvent(state.PinStates)
 	state.Release()
 
-	client.Send <- statuses
 	client.Send <- createHolderEvent()
 
 	broadcast(createUserEvent())
