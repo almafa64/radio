@@ -27,6 +27,11 @@ const (
 	jsonCommandPrefix     = "j"
 )
 
+type JSONEvent string
+const (
+	PAGE_SCHEME_EVENT JSONEvent = "page_scheme"
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 4096,
@@ -60,7 +65,7 @@ var (
 var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
 
 type wrap[T any] struct {
-	Event string
+	Event JSONEvent
 	Data  T
 }
 
@@ -118,7 +123,7 @@ func createCurrentUserEvent(client *mystruct.Client) []byte {
 	return []byte(userListCommandPrefix + "*" + client.Name)
 }
 
-func createJSONEvent[T any](data T, eventName string) []byte {
+func createJSONEvent[T any](data T, eventName JSONEvent) []byte {
 	out, err := json.Marshal(wrap[T]{eventName, data})
 
 	if err != nil {
@@ -266,7 +271,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	client.Send <- createJSONEvent(myconfig.Get().Segments, "page_scheme")
+	client.Send <- createJSONEvent(myconfig.Get().Segments, PAGE_SCHEME_EVENT)
 
 	client.Send <- createCurrentUserEvent(client)
 
@@ -318,7 +323,7 @@ func readMessages(client *mystruct.Client) {
 			}
 
 			switch a.Event {
-			case "page_scheme":
+			case PAGE_SCHEME_EVENT:
 				var segments myconfig.Segments
 				if err = json.Unmarshal(a.Data, &segments); err != nil {
 					log.Println(client.Name, "error in json:", err, string(a.Data))
