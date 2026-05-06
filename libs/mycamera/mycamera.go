@@ -66,7 +66,6 @@ func cameraWorker(id int, config myconfig.CameraModule) {
 
 		for {
 			camera.Stop()
-			camera.GetFrames() // needed for Start(), nothing else
 			if err := camera.Start(context.Background()); err == nil {
 				retry = false
 				log.Printf("Started %s", config.Name)

@@ -28,6 +28,7 @@ const (
 )
 
 type JSONEvent string
+
 const (
 	PAGE_SCHEME_EVENT JSONEvent = "page_scheme"
 )
