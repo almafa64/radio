@@ -30,7 +30,8 @@ const (
 type JSONEvent string
 
 const (
-	PAGE_SCHEME_EVENT JSONEvent = "page_scheme"
+	PAGE_SCHEME_EVENT         JSONEvent = "page_scheme"
+	PUSH_BUTTON_REQUEST_EVENT JSONEvent = "push"
 )
 
 var upgrader = websocket.Upgrader{
@@ -166,8 +167,6 @@ func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
 
-	client.Conn.EnableWriteCompression(true)
-
 	go readMessages(client)
 	go frameSender(client)
 
@@ -231,6 +230,7 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	addClient(client)
 	defer removeClient(client)
 
+	conn.EnableWriteCompression(true)
 	// wait maximum readTimeout second for pong
 	conn.SetReadDeadline(time.Now().Add(myconst.READ_TIMEOUT))
 	conn.SetPongHandler(func(appData string) error {
@@ -266,21 +266,16 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// TODO: pushing 2 push button fast enough after each other stucks one (most likely client-side bug)
-// TODO: 2 client pushing same push buttons stucks it (most likely client-side bug)
-
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
 	client.Send <- createJSONEvent(myconfig.Get().Segments, PAGE_SCHEME_EVENT)
-
+	client.Send <- createHolderEvent()
 	client.Send <- createCurrentUserEvent(client)
 
 	state := appstate.Get()
 	client.Send <- createPinEvent(state.PinStates)
 	state.Release()
-
-	client.Send <- createHolderEvent()
 
 	broadcast(createUserEvent())
 
@@ -313,25 +308,35 @@ func readMessages(client *mystruct.Client) {
 		}
 
 		if message[0] == jsonCommandPrefix[0] {
-			var a wrap[json.RawMessage]
-			if err := json.Unmarshal(message[1:], &a); err != nil {
+			var wrap wrap[json.RawMessage]
+
+			if err := json.Unmarshal(message[1:], &wrap); err != nil {
 				log.Println(client.Name, "error in json:", err)
 				continue
 			}
-			if a.Event == "" {
-				log.Println(client.Name, "strange json:", string(message[1:]))
-				continue
-			}
 
-			switch a.Event {
+			switch wrap.Event {
 			case PAGE_SCHEME_EVENT:
 				var segments myconfig.Segments
-				if err = json.Unmarshal(a.Data, &segments); err != nil {
-					log.Println(client.Name, "error in json:", err, string(a.Data))
+				if err = json.Unmarshal(wrap.Data, &segments); err != nil {
+					log.Println(client.Name, "error in json:", err, string(wrap.Data))
 					break
 				}
 				// TODO: save page and broadcast
+			case PUSH_BUTTON_REQUEST_EVENT:
+				// for now this only runs on depress action
+
+				var data mystruct.PushButtonRequestEvent
+				if err = json.Unmarshal(wrap.Data, &data); err != nil {
+					log.Println(client.Name, "error in json:", err, string(wrap.Data))
+					break
+				}
+
+				buttonPress(client, data.Pin, data.IsDepressed)
+			default:
+				log.Println(client.Name, "strange json:", string(message[1:]))
 			}
+
 			continue
 		}
 
@@ -341,53 +346,59 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		button := myconfig.Get().GetButtonByPin(pin)
-		if button == nil {
-			continue
-		}
-
-		isToggleButton := button.IsToggle
-
-		if !isToggleButton {
-			held_by_other := false
-
-			// if button is not held by requesting user, deny it
-			Clients.Range(func(key, value any) bool {
-				client2 := key.(*mystruct.Client)
-
-				if client2.HoldingPinNumber == pin && client2 != client {
-					held_by_other = true
-					return false
-				}
-
-				return true
-			})
-
-			if held_by_other {
-				continue
-			}
-
-			if client.HoldingPinNumber != -1 {
-				if pin != client.HoldingPinNumber { // if requesting user already holds another button, deny it
-					continue
-				}
-
-				// if button already held by requesting user, release it
-				client.HoldingPinNumber = -1
-			} else {
-				client.HoldingPinNumber = pin
-			}
-
-			broadcast(createHolderEvent())
-		}
-
-		state := appstate.GetWritable()
-
-		state.PinStates.TogglePinStatus(pin)
-
-		myparallel.WritePort(state.PinStates)
-		broadcast(createPinEvent(state.PinStates))
-
-		state.Release()
+		buttonPress(client, pin, false)
 	}
+}
+
+func buttonPress(client *mystruct.Client, pin int, depressed bool) {
+	button := myconfig.Get().GetButtonByPin(pin)
+	if button == nil {
+		return
+	}
+
+	if !button.IsToggle {
+		// if button is not held by requesting user, deny it
+		held_by_other := false
+		Clients.Range(func(key, value any) bool {
+			client2 := key.(*mystruct.Client)
+
+			if client2.HoldingPinNumber == pin && client2 != client {
+				held_by_other = true
+				return false
+			}
+
+			return true
+		})
+
+		if held_by_other {
+			return
+		}
+
+		if depressed {
+			// if requesting user holds another button, deny it
+			if client.HoldingPinNumber != pin {
+				return
+			}
+
+			client.HoldingPinNumber = -1
+		} else {
+			// if requesting user holds any button, deny it
+			if client.HoldingPinNumber != -1 {
+				return
+			}
+
+			client.HoldingPinNumber = pin
+		}
+
+		broadcast(createHolderEvent())
+	}
+
+	state := appstate.GetWritable()
+
+	state.PinStates.TogglePinStatus(pin)
+
+	myparallel.WritePort(state.PinStates)
+	broadcast(createPinEvent(state.PinStates))
+
+	state.Release()
 }

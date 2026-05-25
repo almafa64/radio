@@ -35,3 +35,8 @@ type Button struct {
 type IndexTemplate struct {
 	Buttons []Button
 }
+
+type PushButtonRequestEvent struct {
+	Pin         int
+	IsDepressed bool `json:",omitempty"`
+}

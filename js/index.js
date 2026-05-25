@@ -42,6 +42,8 @@ const user_list_command = "u";
 const editor_command = "e";
 const json_command = "j";
 
+const push_request_command = "push";
+
 /** @type {WebSocket} */
 var socket;
 
@@ -68,6 +70,16 @@ function pressed(button, number) {
 	if (button.classList == "") return;
 
 	socket.send(number);
+}
+
+/**
+ * @param {HTMLButtonElement} button
+ * @param {number} number
+ */
+function unpressed(button, number) {
+	if (button.classList == "") return;
+
+	socket.send(create_json_event(push_request_command, { Pin: parseInt(number), IsDepressed: true }));
 }
 
 function users_popup() {
@@ -301,7 +313,7 @@ function page_scheme_event(data) {
 /**
  * @param {string} data
  */
-function json_event(data) {
+function parse_json_event(data) {
 	data = JSON.parse(data);
 	const event_data = data["Data"];
 	switch (data["Event"]) {
@@ -309,6 +321,17 @@ function json_event(data) {
 			page_scheme_event(event_data);
 			break;
 	}
+}
+
+/**
+ * @param {string} name
+ * @param {any} data
+ */
+function create_json_event(name, data) {
+	return json_command + JSON.stringify({
+		Event: name,
+		Data: data
+	})
 }
 
 // -------- Main part --------
@@ -336,6 +359,7 @@ function create_button(name, num, isToggle) {
 			if (e.button != 0) return;
 
 			if (button.querySelector("p") !== null) return;
+			
 			const number = button.dataset.pin;
 			pressed(button, number);
 			holding_buttons[e.pointerId] = number;
@@ -347,17 +371,20 @@ function create_button(name, num, isToggle) {
 
 // When page goes out of focus, depress all held button
 window.onblur = (e) => {
-	for (const k in holding_buttons) {
-		window.onpointerup({ pointerId: k });
+	for (const pointer_id in holding_buttons) {
+		window.onpointerup({ pointerId: pointer_id });
 	}
 };
 
 window.onpointerup = window.onpointercancel = (ev) => {
-	const radio_number = holding_buttons[ev.pointerId];
-	if (!radio_number) return;
+	const button_number = holding_buttons[ev.pointerId];
+	if (!button_number) return;
 
-	pressed(document.getElementById(`radio_${radio_number}`), radio_number);
 	delete holding_buttons[ev.pointerId];
+
+	const button = document.getElementById(`radio_${button_number}`);
+
+	unpressed(button, button_number);
 };
 
 window.onload = () => {
@@ -427,7 +454,7 @@ window.onload = () => {
 				editor_user_change_event(args[0]);
 				return;
 			case json_command:
-				json_event(args);
+				parse_json_event(args);
 				return;
 		}
 

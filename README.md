@@ -62,6 +62,14 @@ e[name of client]
 ##### JSON events
 Command: `j`<br>
 Args: JSON string with event wrapper (`{Event: "<event name>", Data: <event data>}`)
+###### Push button request data ("push")
+(for now, this is only used for de-press action)
+```json
+{
+	"Pin": 0,            // which button/pin was pushed
+	"IsDepressed": false // was push button de-pressed
+}
+```
 ###### Page scheme data ("page_scheme")
 ```json
 [                                       // each segment can contain multiple modules (Type = "buttons" | "cam")
