@@ -12,31 +12,38 @@ import (
 	"github.com/samber/lo"
 )
 
-var WriteError = errors.New("state isn't locked for writing")
-
 type PinStates map[int]bool
 
 type State struct {
 	PinStates PinStates
 }
 
+var file_lock = new(sync.Mutex)
+var (
+	state_lock       = new(sync.RWMutex)
+	locked_for_write = false
+	global_state     = new(State)
+)
+
+var WriteError = errors.New("state isn't locked for writing")
+
 // TODO: convert old code to new system instead of this ductape
 func (c *PinStates) ToByteSlice() []byte {
 	status := make([]byte, 64)
 
 	config := myconfig.Get()
-	for k, v := range *c {
-		if config.GetButtonByPin(k).Default == -1 {
-			status[k] = '-'
+	for pin, state := range *c {
+		if config.GetButtonByPin(pin).Default == -1 {
+			status[pin] = '-'
 			continue
 		}
 
-		var c byte = '0'
-		if v {
-			c = '1'
+		var status_byte byte = '0'
+		if state {
+			status_byte = '1'
 		}
 
-		status[k] = c
+		status[pin] = status_byte
 	}
 
 	return status
@@ -54,13 +61,6 @@ func (c *PinStates) SetPinStatusTo(pin int, enabled bool) error {
 func (c *PinStates) TogglePinStatus(pin int) error {
 	return c.SetPinStatusTo(pin, !(*c)[pin])
 }
-
-var file_lock = new(sync.Mutex)
-var (
-	state_lock              = new(sync.RWMutex)
-	locked_for_write        = false
-	global_state     *State = new(State)
-)
 
 func Get() *State {
 	state_lock.RLock()
