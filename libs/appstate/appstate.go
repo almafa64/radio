@@ -1,7 +1,9 @@
 package appstate
 
 import (
+	"log"
 	"radio_site/libs/myconfig"
+	"time"
 
 	"encoding/json"
 	"errors"
@@ -9,6 +11,7 @@ import (
 	"sync"
 
 	set "github.com/deckarep/golang-set"
+	"github.com/romdo/go-debounce"
 	"github.com/samber/lo"
 )
 
@@ -24,6 +27,24 @@ var (
 	locked_for_write = false
 	global_state     = new(State)
 )
+
+var save_debounce, _ = debounce.New(50*time.Millisecond, func() {
+	file_lock.Lock()
+	defer file_lock.Unlock()
+
+	state_lock.RLock()
+	data, err := json.Marshal(global_state)
+	state_lock.RUnlock()
+
+	if err != nil {
+		log.Printf("[appstate/state] error: %s", err)
+		return
+	}
+
+	if err := os.WriteFile(myconfig.Get().StateFilePath, data, os.FileMode(0o644)); err != nil {
+		log.Printf("[appstate/save] error: %s", err)
+	}
+})
 
 var WriteError = errors.New("state isn't locked for writing")
 
@@ -78,7 +99,6 @@ func (*State) Release() error {
 		state_lock.Unlock()
 		locked_for_write = false
 
-		// TODO: maybe this will be too slow (debounce?)
 		return global_state.Save()
 	} else {
 		state_lock.RUnlock()
@@ -88,18 +108,8 @@ func (*State) Release() error {
 }
 
 func (*State) Save() error {
-	file_lock.Lock()
-	defer file_lock.Unlock()
-
-	state_lock.RLock()
-	data, err := json.Marshal(global_state)
-	state_lock.RUnlock()
-
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(myconfig.Get().StateFilePath, data, os.FileMode(0o644))
+	save_debounce()
+	return nil
 }
 
 func Load() error {

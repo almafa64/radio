@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/romdo/go-debounce v0.1.0
 	github.com/vladimirvivien/go4vl v0.5.0
 	golang.org/x/sys v0.45.0 // indirect
 )
