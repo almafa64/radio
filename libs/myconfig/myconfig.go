@@ -88,9 +88,8 @@ type Web struct {
 }
 
 type Features struct {
-	Camera        bool
-	Parallel      bool
-	SavePinStatus bool
+	Camera   bool
+	Parallel bool
 }
 
 type CameraModule struct {
@@ -105,9 +104,8 @@ type CameraModule struct {
 var defaultConfig = Config{
 	WebPort: 8080,
 	Features: Features{
-		Camera:        true,
-		Parallel:      true,
-		SavePinStatus: false,
+		Camera:   true,
+		Parallel: true,
 	},
 	StateFilePath: "state.json",
 	Segments:      Segments{},
