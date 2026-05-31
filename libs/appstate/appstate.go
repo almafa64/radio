@@ -48,7 +48,6 @@ var save_debounce, _ = debounce.New(50*time.Millisecond, func() {
 
 var WriteError = errors.New("state isn't locked for writing")
 
-// TODO: convert old code to new system instead of this ductape
 func (c *PinStates) ToByteSlice() []byte {
 	status := make([]byte, 64)
 
