@@ -103,6 +103,15 @@ function get_button_class(button_status) {
 	}
 }
 
+/**
+ * @param {string} format 
+ */
+function camera_format_to_mime(format) {
+	switch (format) {
+		case "mjpeg": return "image/jpeg";
+	}
+}
+
 // -------- Events --------
 
 /**
@@ -359,7 +368,7 @@ function create_button(name, num, isToggle) {
 			if (e.button != 0) return;
 
 			if (button.querySelector("p") !== null) return;
-			
+
 			const number = button.dataset.pin;
 			pressed(button, number);
 			holding_buttons[e.pointerId] = number;
@@ -418,8 +427,7 @@ window.onload = () => {
 			if (canvas.dataset.can_receive_frame == "false") return;
 			canvas.dataset.can_receive_frame = false;
 
-			// TODO: use attribute "format"
-			const blob = new Blob([data.slice(1)], { type: "image/jpeg" });
+			const blob = new Blob([data.slice(1)], { type: camera_format_to_mime(canvas.dataset.format) });
 
 			createImageBitmap(blob)
 				.then((img) => {
