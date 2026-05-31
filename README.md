@@ -7,7 +7,7 @@ All configuration options can be found in libs/myconst/myconst.go
 
 ## Running
 Just run `go run .` in the folder where you found `README.md`.<br>
-The first time it generates `pins.txt` based on `myconst.MAX_NUMBER_OF_PINS` then quits to let you configure the file.<br>
+The first time it generates `pins.txt` based on `myconfig.GetButtonCount()` then quits to let you configure the file.<br>
 After that you can restart it and it'll start on port `8080` (if you haven't changed it)
 
 If you want parallel port support you'll need to run with root privileges.
@@ -22,11 +22,6 @@ It uses these paths:
 ## Technical information
 
 ### Abbreviations
-#### Websocket communication:
-- `RE`: read error
-- `WE`: write error
-- `h`: user names who hold button
-- `u`: user list
 #### Pin file:
 - `T`: toggle button
 - `P`: push button
@@ -39,7 +34,11 @@ It uses these paths:
 ```
 
 #### Websocket
-First character denotes the command
+First character denotes the command, remaining is the argument.
+##### Client name
+```
+u*<name of client>
+```
 ##### User list update
 ```
 u[name of 1. user],...
@@ -51,4 +50,49 @@ h[<name of 1. user>;<button number>],...
 ##### Button status update
 ```
 <status of 1. button><status of 2. button>...
+```
+##### Editor request (requesting client -> server)
+```
+e
+```
+##### Current editor
+```
+e[name of client]
+```
+##### JSON events
+Command: `j`<br>
+Args: JSON string with event wrapper (`{Event: "<event name>", Data: <event data>}`)
+###### Push button request data ("push")
+(for now, this is only used for de-press action)
+```json
+{
+	"Pin": 0,            // which button/pin was pushed
+	"IsDepressed": false // was push button de-pressed
+}
+```
+###### Page scheme data ("page_scheme")
+```json
+[                                       // each segment can contain multiple modules (Type = "buttons" | "cam")
+	[
+		{
+			"Type": "buttons",          // button module
+			"Buttons": [
+				{
+					"Name": "button 1", // name of button
+					"Pin": 0,           // which pin to change on parallel port
+					"Default": 0,       // default state (0: off, 1: on, -1: off+locked)
+					"IsToggle": true    // 0: push button, 1: toggle button
+				}
+			]
+		},
+		{
+			"Type": "cam",              // camera module
+			"Name": "camera 1",         // name of camera
+			"Device": "/dev/video0",    // camera's access path
+			"Resolution": "1920x1080",  // camera's resolution
+			"Fps": 30,                  // camera's fps
+			"Format": "mjpeg"           // camera's video format ("mjpeg")
+		}
+	]
+]
 ```

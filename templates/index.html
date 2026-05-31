@@ -1,34 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Radio</title>
-        <link href="/css/style.css" rel="stylesheet">
-        <script src="/js/index.js"></script>
-    </head>
-    <body>
-        <div id="info-container">
-            <div id="user-container">
-                <p id="user-header">User count: <span id="user_count"></span></p>
-                <ul id="users"></ul>
-            </div>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Radio</title>
+		<link href="/css/style.css" rel="stylesheet">
+		<script src="/js/index.js"></script>
+	</head>
+	<body>
+		<button id="editor_but" onclick="request_editor()">Pin Editor (<span id="current_editor_span"></span>)</button>
 
-            <canvas id="video0" width="640" height="480" hidden></canvas>
-            <canvas id="video1" width="640" height="480" hidden></canvas>
-            <canvas id="video2" width="640" height="480" hidden></canvas>
-        </div>
-
-        <div id="buttons">
-            {{ range .Buttons }}
-            <div class="button_container">
-                {{ if .IsToggle }}
-                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" toggle>{{ .Name }}</button>
-                {{ else }}
-                <button id="radio_{{ .Num }}" pin_num="{{ .Num }}" push>{{ .Name }}</button>
-                {{ end }}
-            </div>
-            {{ end }}
-        </div>
-    </body>
+		<div id="user-container">
+			<button onclick="users_popup()">Users (count: <span id="user_count"></span>)</button>
+			<ul id="users" hidden></ul>
+		</div>
+	</body>
 </html>

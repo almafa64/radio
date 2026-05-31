@@ -1,27 +1,37 @@
 package mywebsocket
 
 import (
+	"radio_site/libs/appstate"
+	"radio_site/libs/myconfig"
 	"radio_site/libs/myconst"
-	"radio_site/libs/myfile"
-	"radio_site/libs/myhelper"
 	"radio_site/libs/myparallel"
 	"radio_site/libs/mystruct"
-	"strings"
-	"sync/atomic"
 
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 const (
-	holdingCommandPrefix = "h"
+	holdingCommandPrefix  = "h"
 	userListCommandPrefix = "u"
+	editorCommandPrefix   = "e"
+	jsonCommandPrefix     = "j"
+)
+
+type JSONEvent string
+
+const (
+	PAGE_SCHEME_EVENT         JSONEvent = "page_scheme"
+	PUSH_BUTTON_REQUEST_EVENT JSONEvent = "push"
 )
 
 var upgrader = websocket.Upgrader{
@@ -45,103 +55,150 @@ var upgrader = websocket.Upgrader{
 
 		return strings.EqualFold(u.Hostname(), host)
 	},
+	EnableCompression: true,
 }
 
 var (
-	Clients sync.Map
-	ClientCount atomic.Int64 // sync.Map doesnt have any len function
+	Clients      sync.Map
+	ClientCount  atomic.Int64 // sync.Map doesnt have any len function
+	editorClient *mystruct.Client
 )
 
-var ButtonsHeld sync.Map
 var IncomingCameraFrames chan mystruct.CameraFrame = make(chan mystruct.CameraFrame, 20)
+
+type wrap[T any] struct {
+	Event JSONEvent
+	Data  T
+}
 
 func clientsToString() string {
 	var builder strings.Builder
+
 	Clients.Range(func(key, value any) bool {
 		builder.WriteString(key.(*mystruct.Client).Name)
 		builder.WriteByte(',')
 		return true
 	})
+
 	return builder.String()
 }
 
 func holdingClientsToString() string {
 	var builder strings.Builder
-	ButtonsHeld.Range(func(key, value any) bool {
-		builder.WriteString(value.(*mystruct.Client).Name)
+
+	Clients.Range(func(key, value any) bool {
+		client := key.(*mystruct.Client)
+
+		if client.HoldingPinNumber == -1 {
+			return true
+		}
+
+		builder.WriteString(client.Name)
 		builder.WriteByte(';')
-		builder.WriteString(strconv.Itoa(key.(int)))
+		builder.WriteString(strconv.Itoa(client.HoldingPinNumber))
 		builder.WriteByte(',')
+
 		return true
 	})
+
 	return builder.String()
 }
 
-func applyHeldButtons(statuses []byte) []byte {
-	ButtonsHeld.Range(func(key, value any) bool {
-		pin := key.(int)
-		myhelper.InvertStatusByte(statuses, pin)
-		return true
-	})
-	return statuses
+func frameSender(client *mystruct.Client) {
+	for prepMessage := range client.PrepMessageQueue {
+		client.ConnLock.Lock()
+		client.Conn.WritePreparedMessage(prepMessage)
+		client.ConnLock.Unlock()
+	}
 }
 
-func frameSender() {
-	for frame := range IncomingCameraFrames {
-		Clients.Range(func(client, _ any) bool {
-			wr, err := client.(*mystruct.Client).Conn.NextWriter(websocket.BinaryMessage)
-			if err != nil {
-				return true
-			}
-			client.(*mystruct.Client).ConnLock.Lock()
-			wr.Write([]byte{frame.CamId})
-			wr.Write(frame.Data)
-      wr.Close()
-      client.(*mystruct.Client).ConnLock.Unlock()
-			return true
-		})
+func createPinEvent(pin_states appstate.PinStates) []byte {
+	return pin_states.ToByteSlice()
+}
+
+func createUserEvent() []byte {
+	users := clientsToString()
+	return []byte(userListCommandPrefix + users)
+}
+
+func createCurrentUserEvent(client *mystruct.Client) []byte {
+	return []byte(userListCommandPrefix + "*" + client.Name)
+}
+
+func createJSONEvent[T any](data T, eventName JSONEvent) []byte {
+	out, err := json.Marshal(wrap[T]{eventName, data})
+
+	if err != nil {
+		log.Printf("%v", err)
+		return nil
 	}
+
+	return append([]byte(jsonCommandPrefix), out...)
+}
+
+func createHolderEvent() []byte {
+	users := holdingClientsToString()
+	return []byte(holdingCommandPrefix + users)
+}
+
+func createEditorEvent(editor_name string) []byte {
+	return []byte(editorCommandPrefix + editor_name)
+}
+
+func broadcast(data []byte) {
+	Clients.Range(func(key, value any) bool {
+		key.(*mystruct.Client).Send <- data
+		return true
+	})
+}
+
+func setEditor(client *mystruct.Client) {
+	if client == nil {
+		editorClient = nil
+		broadcast(createEditorEvent(""))
+		return
+	}
+
+	editorClient = client
+	broadcast(createEditorEvent(client.Name))
 }
 
 func addClient(client *mystruct.Client) {
 	Clients.Store(client, struct{}{})
 	ClientCount.Add(1)
+
 	go readMessages(client)
+	go frameSender(client)
+
 	log.Printf("%s connected. Total clients: %d", client.Name, ClientCount.Load())
 }
 
 func removeClient(client *mystruct.Client) {
 	Clients.Delete(client)
-	users := clientsToString()
 	ClientCount.Add(-1)
 
-	defer close(client.FrameQueue)
 	client.Conn.Close()
+	close(client.PrepMessageQueue)
 
-	ButtonsHeld.Range(func(key, value any) bool {
-		if value != client { return true }
+	broadcast(createUserEvent())
 
-		ButtonsHeld.Delete(key)
-		return false
-	})
+	if client.HoldingPinNumber != -1 {
+		pin := client.HoldingPinNumber
 
-	usersHolding := holdingClientsToString()
+		client.HoldingPinNumber = -1
+		broadcast(createHolderEvent())
+
+		state := appstate.GetWritable()
+		state.PinStates.TogglePinStatus(pin)
+		broadcast(createPinEvent(state.PinStates))
+		state.Release()
+	}
 
 	log.Printf("%s disconnected. Total clients: %d", client.Name, ClientCount.Load())
-	broadcast([]byte(userListCommandPrefix + users))
-	statuses := myfile.ReadPinStatuses()
-	if statuses == nil {
-		return
-	}
-	broadcast([]byte(holdingCommandPrefix + usersHolding))
-	broadcast(applyHeldButtons(statuses))
-}
 
-func broadcast(text []byte) {
-	Clients.Range(func(key, value any) bool {
-		key.(*mystruct.Client).Send <- text
-		return true
-	})
+	if editorClient == client {
+		setEditor(nil)
+	}
 }
 
 func WsHandler(res http.ResponseWriter, req *http.Request) {
@@ -163,14 +220,17 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 	}
 
 	client := &mystruct.Client{
-		Conn: conn,
-		Send: make(chan []byte),
-		Name: name,
+		Conn:             conn,
+		Send:             make(chan []byte),
+		Name:             name,
+		PrepMessageQueue: make(chan *websocket.PreparedMessage, 5),
+		HoldingPinNumber: -1,
 	}
 
 	addClient(client)
 	defer removeClient(client)
 
+	conn.EnableWriteCompression(true)
 	// wait maximum readTimeout second for pong
 	conn.SetReadDeadline(time.Now().Add(myconst.READ_TIMEOUT))
 	conn.SetPongHandler(func(appData string) error {
@@ -209,16 +269,19 @@ func WsHandler(res http.ResponseWriter, req *http.Request) {
 func readMessages(client *mystruct.Client) {
 	defer close(client.Send)
 
-	statuses := myfile.ReadPinStatuses()
-	if statuses == nil {
-		return
-	}
-	client.Send <- applyHeldButtons(statuses)
-	users := clientsToString()
+	client.Send <- createJSONEvent(myconfig.Get().Segments, PAGE_SCHEME_EVENT)
+	client.Send <- createHolderEvent()
+	client.Send <- createCurrentUserEvent(client)
 
-	usersHolding := holdingClientsToString()
-	broadcast([]byte(holdingCommandPrefix + usersHolding))
-	broadcast([]byte(userListCommandPrefix + users))
+	state := appstate.Get()
+	client.Send <- createPinEvent(state.PinStates)
+	state.Release()
+
+	broadcast(createUserEvent())
+
+	if editorClient != nil {
+		client.Send <- createEditorEvent(editorClient.Name)
+	}
 
 	for {
 		msgType, message, err := client.Conn.ReadMessage()
@@ -233,42 +296,109 @@ func readMessages(client *mystruct.Client) {
 			continue
 		}
 
-		// check if message is number and in range of max pin number
-		pin, err := strconv.Atoi(string(message))
-		if err != nil || pin >= myconst.MAX_NUMBER_OF_PINS {
+		if message[0] == editorCommandPrefix[0] {
+			switch editorClient {
+			case nil:
+				setEditor(client)
+			case client:
+				setEditor(nil)
+			}
+
 			continue
 		}
 
-		modes := myfile.ReadPinModes()
-		isToggleButton := modes[pin] == 'T'
+		if message[0] == jsonCommandPrefix[0] {
+			var wrap wrap[json.RawMessage]
 
-		var statuses []byte
-
-		if !isToggleButton {
-			statuses = myfile.ReadPinStatuses()
-			if statuses == nil {
-				return
+			if err := json.Unmarshal(message[1:], &wrap); err != nil {
+				log.Println(client.Name, "error in json:", err)
+				continue
 			}
 
-			value, loaded := ButtonsHeld.LoadOrStore(pin, client)
-			if value != client { continue }       // if button is not held by requesting user, deny it
-			if loaded { ButtonsHeld.Delete(pin) } // if button already held by requesting user, release it
+			switch wrap.Event {
+			case PAGE_SCHEME_EVENT:
+				var segments myconfig.Segments
+				if err = json.Unmarshal(wrap.Data, &segments); err != nil {
+					log.Println(client.Name, "error in json:", err, string(wrap.Data))
+					break
+				}
+				// TODO: save page and broadcast
+			case PUSH_BUTTON_REQUEST_EVENT:
+				// for now this only runs on depress action
 
-			usersHolding := holdingClientsToString()
-			broadcast([]byte(holdingCommandPrefix + usersHolding))
-		} else {
-			statuses = myhelper.TogglePinStatus(pin)
-			if statuses == nil {
-				return
+				var data mystruct.PushButtonRequestEvent
+				if err = json.Unmarshal(wrap.Data, &data); err != nil {
+					log.Println(client.Name, "error in json:", err, string(wrap.Data))
+					break
+				}
+
+				buttonPress(client, data.Pin, data.IsDepressed)
+			default:
+				log.Println(client.Name, "strange json:", string(message[1:]))
 			}
+
+			continue
 		}
 
-		applyHeldButtons(statuses)
-		myparallel.WritePort(statuses)
-		broadcast(statuses)
+		// check if message is number
+		pin, err := strconv.Atoi(string(message))
+		if err != nil {
+			continue
+		}
+
+		buttonPress(client, pin, false)
 	}
 }
 
-func StartWorker() {
-	go frameSender()
+func buttonPress(client *mystruct.Client, pin int, depressed bool) {
+	button := myconfig.Get().GetButtonByPin(pin)
+	if button == nil {
+		return
+	}
+
+	if !button.IsToggle {
+		// if button is not held by requesting user, deny it
+		held_by_other := false
+		Clients.Range(func(key, value any) bool {
+			client2 := key.(*mystruct.Client)
+
+			if client2.HoldingPinNumber == pin && client2 != client {
+				held_by_other = true
+				return false
+			}
+
+			return true
+		})
+
+		if held_by_other {
+			return
+		}
+
+		if depressed {
+			// if requesting user holds another button, deny it
+			if client.HoldingPinNumber != pin {
+				return
+			}
+
+			client.HoldingPinNumber = -1
+		} else {
+			// if requesting user holds any button, deny it
+			if client.HoldingPinNumber != -1 {
+				return
+			}
+
+			client.HoldingPinNumber = pin
+		}
+
+		broadcast(createHolderEvent())
+	}
+
+	state := appstate.GetWritable()
+
+	state.PinStates.TogglePinStatus(pin)
+
+	myparallel.WritePort(state.PinStates)
+	broadcast(createPinEvent(state.PinStates))
+
+	state.Release()
 }

@@ -1,3 +1,4 @@
 radio_site
-pins.txt
 rcrs.toml
+state.json
+config.json
